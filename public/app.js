@@ -27,36 +27,43 @@ const historyList = $("#history-list");
 const HISTORY_KEY = "ecosort-ai-history";
 const MAX_HISTORY = 10;
 
+const CATEGORY_COLORS = {
+  Plastic: "#39e58c",
+  Paper: "#62b8ff",
+  Organic: "#e9c46a",
+  Electronic: "#c5a3ff",
+  Glass: "#ff9c78",
+  Other: "#718b80"
+};
+
 let latestAnswer = "";
 let currentReportDate = new Date().toISOString();
 let isAnalyzing = false;
 
-function updateCharCount() {
-  if (charCount && wasteInput) {
-    charCount.textContent = `${wasteInput.value.length}/1000`;
-  }
-}
-
 function showError(message) {
-  if (!errorMessage) return;
   errorMessage.textContent = message;
   errorMessage.hidden = false;
 }
 
 function hideError() {
-  if (!errorMessage) return;
   errorMessage.textContent = "";
   errorMessage.hidden = true;
 }
 
+function updateCharCount() {
+  charCount.textContent = `${wasteInput.value.length}/1000`;
+}
+
 function setLoading(loading) {
   isAnalyzing = loading;
+  analyzeBtn.disabled = loading;
+  buttonText.textContent = loading ? "Analyzing..." : "Analyze with AI →";
+  loadingState.hidden = !loading;
 
-  if (analyzeBtn) analyzeBtn.disabled = loading;
-  if (buttonText) buttonText.textContent = loading ? "Analyzing..." : "Analyze with AI →";
-  if (loadingState) loadingState.hidden = !loading;
-  if (loading && emptyState) emptyState.hidden = true;
-  if (loading && resultContent) resultContent.hidden = true;
+  if (loading) {
+    emptyState.hidden = true;
+    resultContent.hidden = true;
+  }
 }
 
 function formatDate(value) {
@@ -64,8 +71,56 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString();
 }
 
-/* Example chips */
-wasteInput?.addEventListener("input", updateCharCount);
+function localDayKey(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+/* Determine the category from the AI response and item description. */
+function getCategory(item) {
+  const answer = String(item.answer || "");
+  const categorySection = answer.match(
+    /(?:^|\n)\s*(?:#{1,4}\s*)?CATEGORY\s*:?\s*\n?([\s\S]*?)(?=\n\s*(?:#{1,4}\s*)?(?:DISPOSAL|RECYCLING|SAFETY|REUSE IDEA)\b|$)/i
+  );
+
+  const categoryText = categorySection
+    ? categorySection[1].slice(0, 250)
+    : "";
+
+  const text = `${categoryText} ${item.waste || ""}`.toLowerCase();
+
+  if (/electronic|e-waste|battery|batteries|lithium|circuit board|mobile phone|charger/.test(text)) {
+    return "Electronic";
+  }
+
+  if (/organic|food waste|food scraps|compost|fruit peel|vegetable peel/.test(text)) {
+    return "Organic";
+  }
+
+  if (/cardboard|paper packaging|newspaper|paper waste|paper &/.test(text)) {
+    return "Paper";
+  }
+
+  if (/plastic|pet\b|hdpe|polypropylene|polyethylene|water bottle/.test(text)) {
+    return "Plastic";
+  }
+
+  if (/glass|glass bottle|glass jar/.test(text)) {
+    return "Glass";
+  }
+
+  return "Other";
+}
+
+/* Category examples update the analyzer input. */
+wasteInput.addEventListener("input", updateCharCount);
 updateCharCount();
 
 document.querySelectorAll("[data-example]").forEach((button) => {
@@ -74,24 +129,36 @@ document.querySelectorAll("[data-example]").forEach((button) => {
     updateCharCount();
     hideError();
 
-    if (resultContent) resultContent.hidden = true;
-    if (emptyState) emptyState.hidden = false;
+    resultContent.hidden = true;
+    emptyState.hidden = false;
 
-    $("#analyzer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    $("#analyzer").scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
     wasteInput.focus({ preventScroll: true });
   });
 });
 
-/* Display AI response as safe text */
+/* Render the AI answer as text, not executable HTML. */
 function displayAnswer(answer) {
   latestAnswer = answer;
   answerElement.replaceChildren();
 
-  const headings = ["CATEGORY", "DISPOSAL", "RECYCLING", "SAFETY", "REUSE IDEA"];
+  const headings = [
+    "CATEGORY",
+    "DISPOSAL",
+    "RECYCLING",
+    "SAFETY",
+    "REUSE IDEA"
+  ];
+
   let currentBody = null;
 
   answer.split(/\r?\n/).forEach((line) => {
     const text = line.trim();
+
     if (!text) return;
 
     const normalized = text
@@ -109,6 +176,7 @@ function displayAnswer(answer) {
       heading.textContent = normalized;
 
       const paragraph = document.createElement("p");
+
       card.append(heading, paragraph);
       answerElement.appendChild(card);
       currentBody = paragraph;
@@ -123,18 +191,22 @@ function displayAnswer(answer) {
       answerElement.appendChild(card);
     }
 
-    currentBody.textContent += (currentBody.textContent ? "\n" : "") + text;
+    currentBody.textContent +=
+      (currentBody.textContent ? "\n" : "") + text;
   });
 
-  if (!answerElement.children.length) answerElement.textContent = answer;
+  if (!answerElement.children.length) {
+    answerElement.textContent = answer;
+  }
 }
 
-/* History */
+/* Read and save browser-local history. */
 function getHistory() {
   try {
     const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
     return Array.isArray(data) ? data : [];
-  } catch {
+  } catch (error) {
+    console.warn("History read failed:", error);
     return [];
   }
 }
@@ -143,13 +215,21 @@ function saveHistory(item) {
   try {
     const history = getHistory();
     history.unshift(item);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
-    renderHistory();
+
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(history.slice(0, MAX_HISTORY))
+    );
   } catch (error) {
-    console.warn("History save failed:", error);
+    console.warn("History could not be saved:", error);
+    showError("Analysis succeeded, but browser history storage is unavailable.");
   }
+
+  renderHistory();
+  renderAnalytics();
 }
 
+/* Load a saved report into the analyzer. */
 function loadReport(item) {
   wasteInput.value = item.waste || "";
   updateCharCount();
@@ -160,20 +240,26 @@ function loadReport(item) {
   reportWaste.textContent = item.waste || "Unknown item";
   reportDate.textContent = formatDate(currentReportDate);
 
-  responseTime.textContent = typeof item.responseTimeMs === "number"
-    ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
-    : "";
+  responseTime.textContent =
+    typeof item.responseTimeMs === "number"
+      ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
+      : "";
 
   hideError();
   loadingState.hidden = true;
   emptyState.hidden = true;
   resultContent.hidden = false;
 
-  $("#analyzer").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#analyzer").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
 }
 
+/* History cards */
 function renderHistory() {
   historyList.replaceChildren();
+
   const history = getHistory();
 
   if (!history.length) {
@@ -196,8 +282,10 @@ function renderHistory() {
     title.textContent = item.waste || "Waste analysis";
 
     const preview = document.createElement("p");
-    preview.textContent = (item.answer || "").slice(0, 180) +
-      ((item.answer || "").length > 180 ? "…" : "");
+    const answer = item.answer || "";
+
+    preview.textContent =
+      answer.slice(0, 180) + (answer.length > 180 ? "…" : "");
 
     const date = document.createElement("p");
     date.className = "history-date";
@@ -225,17 +313,173 @@ function renderHistory() {
   });
 }
 
-clearHistoryBtn?.addEventListener("click", () => {
+clearHistoryBtn.addEventListener("click", () => {
   if (!getHistory().length) return;
-  if (!confirm("Clear all saved analyses from this browser?")) return;
 
-  localStorage.removeItem(HISTORY_KEY);
-  renderHistory();
+  if (!window.confirm("Clear all saved analyses from this browser?")) {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+    renderAnalytics();
+  } catch (error) {
+    showError("Could not clear saved history.");
+  }
 });
 
-/* AI analysis */
-form?.addEventListener("submit", async (event) => {
+/* =========================================
+   ANALYTICS DASHBOARD
+   ========================================= */
+
+function renderAnalytics() {
+  const history = getHistory();
+
+  $("#stat-total").textContent = history.length;
+
+  const categoryCounts = {};
+  const dailyCounts = {};
+
+  history.forEach((item) => {
+    const category = getCategory(item);
+    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+
+    const day = localDayKey(item.date);
+
+    if (day) {
+      dailyCounts[day] = (dailyCounts[day] || 0) + 1;
+    }
+  });
+
+  $("#stat-categories").textContent = Object.keys(categoryCounts).length;
+  $("#stat-days").textContent = Object.keys(dailyCounts).length;
+
+  renderPieChart(categoryCounts, history.length);
+  renderBarChart(dailyCounts);
+}
+
+/* Pie chart: each slice is proportional to saved analysis count. */
+function renderPieChart(counts, total) {
+  const pie = $("#pie-chart");
+  const legend = $("#pie-legend");
+
+  $("#pie-total").textContent = total;
+  legend.replaceChildren();
+
+  if (!total) {
+    pie.style.background = "conic-gradient(#244b3b 0% 100%)";
+
+    const message = document.createElement("p");
+    message.className = "muted small";
+    message.textContent = "Analyze an item to populate the chart.";
+    legend.appendChild(message);
+    return;
+  }
+
+  const entries = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1]);
+
+  let currentPercent = 0;
+
+  const slices = entries.map(([category, count]) => {
+    const start = currentPercent;
+    currentPercent += (count / total) * 100;
+
+    return `${CATEGORY_COLORS[category] || CATEGORY_COLORS.Other} ${start}% ${currentPercent}%`;
+  });
+
+  pie.style.background = `conic-gradient(${slices.join(", ")})`;
+
+  entries.forEach(([category, count]) => {
+    const row = document.createElement("div");
+    row.className = "legend-item";
+
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = CATEGORY_COLORS[category] || CATEGORY_COLORS.Other;
+
+    const name = document.createElement("span");
+    name.className = "legend-name";
+    name.textContent = category;
+
+    const value = document.createElement("strong");
+    value.className = "legend-value";
+    value.textContent = `${count} (${Math.round(count / total * 100)}%)`;
+
+    row.append(dot, name, value);
+    legend.appendChild(row);
+  });
+
+  pie.setAttribute(
+    "aria-label",
+    entries.map(([category, count]) => `${category}: ${count}`).join(", ")
+  );
+}
+
+/* Bar chart: counts for today and the preceding six calendar days. */
+function renderBarChart(dailyCounts) {
+  const chart = $("#bar-chart");
+  chart.replaceChildren();
+
+  const today = new Date();
+  const days = [];
+
+  for (let offset = 6; offset >= 0; offset--) {
+    const date = new Date(today);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(today.getDate() - offset);
+
+    days.push({
+      key: localDayKey(date),
+      label: date.toLocaleDateString(undefined, { weekday: "short" })
+    });
+  }
+
+  const maxCount = Math.max(
+    1,
+    ...days.map((day) => dailyCounts[day.key] || 0)
+  );
+
+  days.forEach((day) => {
+    const count = dailyCounts[day.key] || 0;
+
+    const column = document.createElement("div");
+    column.className = "bar-column";
+
+    const value = document.createElement("span");
+    value.className = "bar-value";
+    value.textContent = count;
+
+    const track = document.createElement("div");
+    track.className = "bar-track";
+
+    const bar = document.createElement("div");
+    bar.className = "bar-fill";
+    bar.style.height = count ? `${(count / maxCount) * 100}%` : "0%";
+
+    const label = document.createElement("span");
+    label.className = "bar-label";
+    label.textContent = day.label;
+
+    track.appendChild(bar);
+    column.append(value, track, label);
+    chart.appendChild(column);
+  });
+
+  chart.setAttribute(
+    "aria-label",
+    days.map((day) => `${day.label}: ${dailyCounts[day.key] || 0}`).join(", ")
+  );
+}
+
+/* =========================================
+   AI ANALYSIS
+   ========================================= */
+
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   if (isAnalyzing) return;
 
   const waste = wasteInput.value.trim();
@@ -246,13 +490,9 @@ form?.addEventListener("submit", async (event) => {
     return;
   }
 
-  if (waste.length > 1000) {
-    showError("Description must be 1000 characters or less.");
-    return;
-  }
-
   hideError();
   setLoading(true);
+
   const startedAt = performance.now();
 
   try {
@@ -265,7 +505,9 @@ form?.addEventListener("submit", async (event) => {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || `AI request failed (HTTP ${response.status}).`);
+      throw new Error(
+        data.error || `AI request failed (HTTP ${response.status}).`
+      );
     }
 
     if (typeof data.answer !== "string" || !data.answer.trim()) {
@@ -280,7 +522,8 @@ form?.addEventListener("submit", async (event) => {
 
     reportWaste.textContent = waste;
     reportDate.textContent = formatDate(currentReportDate);
-    responseTime.textContent = `Response time: ${(elapsedMs / 1000).toFixed(1)} seconds`;
+    responseTime.textContent =
+      `Response time: ${(elapsedMs / 1000).toFixed(1)} seconds`;
 
     emptyState.hidden = true;
     resultContent.hidden = false;
@@ -292,18 +535,22 @@ form?.addEventListener("submit", async (event) => {
       responseTimeMs: elapsedMs
     });
 
-    resultContent.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    resultContent.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest"
+    });
   } catch (error) {
     console.error("EcoSort AI error:", error);
     showError(error.message || "Could not analyze the item. Please try again.");
-    if (emptyState && !latestAnswer) emptyState.hidden = false;
+
+    if (!latestAnswer) emptyState.hidden = false;
   } finally {
     setLoading(false);
   }
 });
 
-/* Copy result */
-copyBtn?.addEventListener("click", async () => {
+/* Copy analysis text */
+copyBtn.addEventListener("click", async () => {
   if (!latestAnswer) {
     showError("Analyze an item before copying the result.");
     return;
@@ -311,6 +558,7 @@ copyBtn?.addEventListener("click", async () => {
 
   try {
     await navigator.clipboard.writeText(latestAnswer);
+
     const oldText = copyBtn.textContent;
     copyBtn.textContent = "Copied ✓";
 
@@ -322,10 +570,10 @@ copyBtn?.addEventListener("click", async () => {
   }
 });
 
-/* PDF export */
+/* Export current report to browser print/PDF dialog */
 function exportPDF() {
   if (!latestAnswer) {
-    showError("Analyze a waste item before exporting a report.");
+    showError("Analyze an item before exporting a report.");
     return;
   }
 
@@ -337,11 +585,10 @@ function exportPDF() {
   document.title = oldTitle;
 }
 
-exportPdfBtn?.addEventListener("click", exportPDF);
+exportPdfBtn.addEventListener("click", exportPDF);
 
-/* Footer year */
-const yearElement = $("#current-year");
-if (yearElement) yearElement.textContent = new Date().getFullYear();
+/* Footer and initial dashboard */
+$("#current-year").textContent = new Date().getFullYear();
 
-/* Initialize */
 renderHistory();
+renderAnalytics();

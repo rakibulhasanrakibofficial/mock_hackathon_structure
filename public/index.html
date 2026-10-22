@@ -3,9 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#071a16">
-  <meta name="description" content="EcoSort AI helps you identify waste and discover responsible disposal and recycling options.">
+  <meta name="description" content="EcoSort AI — smart waste sorting and recycling guidance.">
   <title>EcoSort AI | Smart Waste Sorting</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
@@ -17,6 +17,7 @@
       <nav aria-label="Main navigation">
         <a href="#analyzer">AI Analyzer</a>
         <a href="#categories">Categories</a>
+        <a href="#analytics">Analytics</a>
         <a href="#history">History</a>
       </nav>
       <a class="nav-button" href="#analyzer">Try AI ↗</a>
@@ -29,14 +30,13 @@
         <div>
           <span class="eyebrow">🌍 SMARTER WASTE MANAGEMENT</span>
           <h1>Turn Waste Into <span>Worth.</span></h1>
-          <p class="muted">Identify waste, discover recycling options, and make greener choices with AI-powered guidance.</p>
+          <p class="muted">Identify waste, explore recycling options, and make greener choices with AI-powered guidance.</p>
           <div class="hero-actions">
             <a class="primary-btn" href="#analyzer">Analyze Your Waste →</a>
-            <a class="secondary-btn" href="#categories">Explore Categories</a>
+            <a class="secondary-btn" href="#analytics">View Analytics</a>
           </div>
           <p class="small-note">✓ Practical guidance &nbsp; ✓ Safety reminders</p>
         </div>
-
         <div class="hero-card">
           <div class="hero-emoji">♻️</div>
           <span class="eyebrow">A GREENER TOMORROW</span>
@@ -59,7 +59,8 @@
         <div class="panel">
           <form id="waste-form">
             <label for="waste">Describe your waste item</label>
-            <textarea id="waste" name="waste" rows="4" maxlength="1000" required placeholder="e.g. An empty plastic water bottle..."></textarea>
+            <textarea id="waste" maxlength="1000" rows="4" required
+              placeholder="e.g. An empty plastic water bottle..."></textarea>
             <div class="counter" id="char-count">0/1000</div>
 
             <p class="form-label">QUICK EXAMPLES</p>
@@ -101,16 +102,12 @@
                 <button type="button" id="export-pdf-btn" class="primary-btn">📄 Export PDF</button>
               </div>
             </div>
-
             <div class="report-meta">
-              <span>Waste item</span>
-              <strong id="report-waste"></strong>
-              <span>Report date</span>
-              <strong id="report-date"></strong>
+              <span>Waste item</span><strong id="report-waste"></strong>
+              <span>Report date</span><strong id="report-date"></strong>
             </div>
-
             <div id="answer" class="answer"></div>
-            <p class="print-note">EcoSort AI provides general guidance. Always follow local waste-disposal rules.</p>
+            <p class="print-note">EcoSort AI provides general guidance. Follow local waste-disposal rules.</p>
           </section>
         </div>
       </div>
@@ -121,40 +118,104 @@
         <div class="section-heading">
           <span class="eyebrow">KNOW YOUR WASTE</span>
           <h2>Waste comes in many forms</h2>
-          <p class="muted">Learn how different materials may need different handling.</p>
+          <p class="muted">Different materials need different handling.</p>
         </div>
-
         <div class="categories-grid">
           <article class="category-card">
             <div class="category-icon">🧴</div>
             <h3>Plastic</h3>
-            <p class="muted">Check the resin code and local recycling rules before disposal.</p>
-            <span class="category-tip">Tip: Keep recyclable containers appropriately clean.</span>
+            <p class="muted">Check the resin code and local recycling rules.</p>
+            <span class="category-tip">Tip: Keep accepted containers appropriately clean.</span>
           </article>
-
           <article class="category-card">
             <div class="category-icon">📦</div>
             <h3>Paper &amp; Cardboard</h3>
             <p class="muted">Keep recyclable paper dry and separate heavily contaminated packaging.</p>
             <span class="category-tip">Tip: Flatten boxes when practical.</span>
           </article>
-
           <article class="category-card">
             <div class="category-icon">🍃</div>
             <h3>Organic</h3>
-            <p class="muted">Food scraps may be suitable for composting where facilities exist.</p>
-            <span class="category-tip">Tip: Follow your local composting guidance.</span>
+            <p class="muted">Food scraps may be compostable where suitable facilities exist.</p>
+            <span class="category-tip">Tip: Follow local composting guidance.</span>
           </article>
-
           <article class="category-card">
             <div class="category-icon">🔋</div>
             <h3>Electronic</h3>
             <p class="muted">Batteries and electronics need appropriate collection and handling.</p>
-            <span class="category-tip">Tip: Damaged batteries need special care.</span>
+            <span class="category-tip">Tip: Keep damaged batteries out of ordinary bins.</span>
+          </article>
+        </div>
+        <p class="disclaimer">Recycling options depend on your location and available facilities.</p>
+      </div>
+    </section>
+
+    <section class="section analytics-section" id="analytics">
+      <div class="container">
+        <div class="section-heading">
+          <span class="eyebrow">YOUR WASTE DATA</span>
+          <h2>Analytics Dashboard</h2>
+          <p class="muted">Insights generated from your saved analyses in this browser.</p>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span class="stat-icon">🔎</span>
+            <p class="muted">Total Analyses</p>
+            <strong id="stat-total">0</strong>
+            <span class="stat-caption">Saved analysis records</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-icon">🏷️</span>
+            <p class="muted">Categories Found</p>
+            <strong id="stat-categories">0</strong>
+            <span class="stat-caption">Distinct identified categories</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-icon">📅</span>
+            <p class="muted">Active Days</p>
+            <strong id="stat-days">0</strong>
+            <span class="stat-caption">Days with saved analyses</span>
           </article>
         </div>
 
-        <p class="disclaimer">Disposal and recycling options depend on your location and available facilities.</p>
+        <div class="charts-grid">
+          <article class="chart-card">
+            <div class="chart-heading">
+              <div>
+                <h3>Waste Composition</h3>
+                <p class="muted small">Distribution by identified category</p>
+              </div>
+              <span class="chart-label">PIE CHART</span>
+            </div>
+            <div class="pie-layout">
+              <div id="pie-chart" class="pie-chart" role="img" aria-label="Waste category pie chart">
+                <div class="pie-center"><strong id="pie-total">0</strong><span>items</span></div>
+              </div>
+              <div id="pie-legend" class="pie-legend">
+                <p class="muted small">Analyze items to populate the chart.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-heading">
+              <div>
+                <h3>Daily Activity</h3>
+                <p class="muted small">Saved analyses over the last 7 days</p>
+              </div>
+              <span class="chart-label">BAR CHART</span>
+            </div>
+            <div id="bar-chart" class="bar-chart" role="img" aria-label="Daily analysis activity chart">
+              <p class="muted small">Your daily activity will appear here.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="analytics-note">
+          <strong>About these statistics</strong>
+          <p class="muted small">Charts use saved analysis records, not measured waste weight or confirmed recycling. Data is stored locally in this browser.</p>
+        </div>
       </div>
     </section>
 
