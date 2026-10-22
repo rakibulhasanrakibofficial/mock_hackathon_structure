@@ -1,45 +1,207 @@
 
+"use strict";
+
+/* =========================================
+   EcoSort AI — Complete Frontend Logic
+   ========================================= */
+
 const form = document.getElementById("waste-form");
 const wasteInput = document.getElementById("waste");
+const charCount = document.getElementById("char-count");
 const analyzeBtn = document.getElementById("analyze-btn");
 const buttonText = document.getElementById("button-text");
-const charCount = document.getElementById("char-count");
 
 const emptyState = document.getElementById("empty-state");
 const loadingState = document.getElementById("loading-state");
 const resultContent = document.getElementById("result-content");
-const answer = document.getElementById("answer");
+const answerElement = document.getElementById("answer");
+
 const errorMessage = document.getElementById("error-message");
 const copyBtn = document.getElementById("copy-btn");
+const responseTime = document.getElementById("response-time");
 
 const historyList = document.getElementById("history-list");
 const clearHistoryBtn = document.getElementById("clear-history");
 
-const HISTORY_KEY = "ecosort-analysis-history";
-
-const sections = [
-  { heading: "CATEGORY", label: "Waste Category", icon: "♻️", color: "green" },
-  { heading: "DISPOSAL", label: "How to Dispose", icon: "🗑️", color: "blue" },
-  { heading: "RECYCLING", label: "Recycling Guide", icon: "🌱", color: "purple" },
-  { heading: "SAFETY", label: "Safety First", icon: "🛡️", color: "orange" },
-  { heading: "REUSE IDEA", label: "Reuse Idea", icon: "✨", color: "pink" }
-];
+const HISTORY_KEY = "ecosort-ai-history";
+const MAX_HISTORY = 10;
 
 let latestAnswer = "";
-let latestWaste = "";
-let requestInProgress = false;
+let isAnalyzing = false;
 
-function showState(state) {
-  emptyState.hidden = state !== "empty";
-  loadingState.hidden = state !== "loading";
-  resultContent.hidden = state !== "result";
+/* =========================================
+   Character Counter
+   ========================================= */
+
+function updateCharCount() {
+  if (!wasteInput || !charCount) return;
+
+  charCount.textContent = `${wasteInput.value.length}/1000`;
 }
+
+wasteInput?.addEventListener("input", updateCharCount);
+updateCharCount();
+
+/* =========================================
+   Example Chips + Category Buttons
+   ========================================= */
+
+document.querySelectorAll("[data-example]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!wasteInput) return;
+
+    wasteInput.value = button.dataset.example || "";
+    updateCharCount();
+
+    hideError();
+
+    if (resultContent) resultContent.hidden = true;
+    if (emptyState) emptyState.hidden = false;
+
+    document.getElementById("analyzer")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+    wasteInput.focus({ preventScroll: true });
+  });
+});
+
+/* =========================================
+   UI State Helpers
+   ========================================= */
+
+function hideError() {
+  if (!errorMessage) return;
+
+  errorMessage.textContent = "";
+  errorMessage.hidden = true;
+}
+
+function showError(message) {
+  if (!errorMessage) return;
+
+  errorMessage.textContent = message;
+  errorMessage.hidden = false;
+}
+
+function setLoading(loading) {
+  isAnalyzing = loading;
+
+  if (analyzeBtn) {
+    analyzeBtn.disabled = loading;
+  }
+
+  if (buttonText) {
+    buttonText.textContent = loading
+      ? "Analyzing..."
+      : "Analyze with AI →";
+  }
+
+  if (loadingState) {
+    loadingState.hidden = !loading;
+  }
+
+  if (loading) {
+    if (emptyState) emptyState.hidden = true;
+    if (resultContent) resultContent.hidden = true;
+  }
+}
+
+/* =========================================
+   Safe Text Rendering
+   ========================================= */
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (character) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    };
+
+    return entities[character];
+  });
+}
+
+/*
+ * Display the AI answer as plain text.
+ * No AI-generated HTML is executed.
+ */
+function displayAnswer(answer) {
+  if (!answerElement) return;
+
+  latestAnswer = answer;
+  answerElement.replaceChildren();
+
+  const lines = answer.split(/\r?\n/);
+  let currentCard = null;
+  let currentBody = null;
+
+  const headingPattern =
+    /^(?:#{1,4}\s*)?(CATEGORY|DISPOSAL|RECYCLING|SAFETY|REUSE IDEA)\s*:?\s*$/i;
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) return;
+
+    const headingMatch = trimmed.match(headingPattern);
+
+    if (headingMatch) {
+      currentCard = document.createElement("section");
+      currentCard.className = "answer-card";
+
+      const heading = document.createElement("h4");
+      heading.textContent = headingMatch[1].toUpperCase();
+
+      currentBody = document.createElement("p");
+
+      currentCard.append(heading, currentBody);
+      answerElement.appendChild(currentCard);
+
+      return;
+    }
+
+    if (!currentCard) {
+      currentCard = document.createElement("section");
+      currentCard.className = "answer-card";
+
+      currentBody = document.createElement("p");
+
+      currentCard.appendChild(currentBody);
+      answerElement.appendChild(currentCard);
+    }
+
+    const existingText = currentBody.textContent;
+
+    currentBody.textContent = existingText
+      ? `${existingText}\n${trimmed}`
+      : trimmed;
+  });
+
+  if (!answerElement.children.length) {
+    answerElement.textContent = answer;
+  }
+}
+
+/* =========================================
+   Local Analysis History
+   ========================================= */
 
 function getHistory() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+    const stored = localStorage.getItem(HISTORY_KEY);
+
+    if (!stored) return [];
+
+    const history = JSON.parse(stored);
+
+    return Array.isArray(history) ? history : [];
+  } catch (error) {
+    console.warn("Could not read history:", error);
     return [];
   }
 }
@@ -47,32 +209,40 @@ function getHistory() {
 function saveHistory(item) {
   try {
     const history = getHistory();
+
     history.unshift(item);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 10)));
+
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(history.slice(0, MAX_HISTORY))
+    );
+
     renderHistory();
   } catch (error) {
-    console.warn("Could not save history:", error.message);
+    console.warn("Could not save history:", error);
   }
 }
 
 function renderHistory() {
   if (!historyList) return;
 
-  historyList.replaceChildren();
   const history = getHistory();
+  historyList.replaceChildren();
 
   if (history.length === 0) {
     const empty = document.createElement("div");
     empty.className = "history-empty";
 
     const icon = document.createElement("span");
-    icon.textContent = "🌱";
+    icon.textContent = "📝";
 
     const message = document.createElement("p");
-    message.textContent = "Your analysis history will appear here.";
+    message.textContent =
+      "Your analyses will appear here after you use the AI analyzer.";
 
     empty.append(icon, message);
     historyList.appendChild(empty);
+
     return;
   }
 
@@ -80,201 +250,210 @@ function renderHistory() {
     const card = document.createElement("article");
     card.className = "history-card";
 
-    const icon = document.createElement("div");
-    icon.className = "history-icon";
-    icon.textContent = "♻";
-
-    const details = document.createElement("div");
-    details.className = "history-details";
-
     const title = document.createElement("h3");
-    title.textContent = item.waste;
+    title.textContent = item.waste || "Waste analysis";
 
     const preview = document.createElement("p");
-    preview.textContent = item.answer.length > 140
-      ? `${item.answer.slice(0, 140)}…`
-      : item.answer;
+    preview.textContent = (item.answer || "").slice(0, 220);
 
-    const date = document.createElement("span");
+    if ((item.answer || "").length > 220) {
+      preview.textContent += "...";
+    }
+
+    const date = document.createElement("p");
     date.className = "history-date";
-    date.textContent = new Date(item.date).toLocaleString();
 
-    details.append(title, preview, date);
-    card.append(icon, details);
+    const parsedDate = new Date(item.date);
+
+    date.textContent = Number.isNaN(parsedDate.getTime())
+      ? ""
+      : parsedDate.toLocaleString();
+
+    const viewButton = document.createElement("button");
+    viewButton.type = "button";
+    viewButton.className = "category-link";
+    viewButton.textContent = "View result →";
+
+    viewButton.addEventListener("click", () => {
+      if (wasteInput) {
+        wasteInput.value = item.waste || "";
+        updateCharCount();
+      }
+
+      displayAnswer(item.answer || "");
+      hideError();
+
+      if (emptyState) emptyState.hidden = true;
+      if (loadingState) loadingState.hidden = true;
+      if (resultContent) resultContent.hidden = false;
+
+      if (responseTime) {
+        responseTime.textContent =
+          typeof item.responseTimeMs === "number"
+            ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
+            : "";
+      }
+
+      document.getElementById("analyzer")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+
+    card.append(title, preview, date, viewButton);
     historyList.appendChild(card);
   });
 }
 
-function renderAnswer(text) {
-  answer.replaceChildren();
+clearHistoryBtn?.addEventListener("click", () => {
+  const history = getHistory();
 
-  const pattern =
-    /(?:^|\n)\s*(CATEGORY|DISPOSAL|RECYCLING|SAFETY|REUSE IDEA)\s*:?\s*/gi;
+  if (history.length === 0) return;
 
-  const matches = [...text.matchAll(pattern)];
+  const confirmed = window.confirm(
+    "Are you sure you want to clear your analysis history?"
+  );
 
-  if (matches.length === 0) {
-    const card = document.createElement("article");
-    card.className = "answer-card green";
+  if (!confirmed) return;
 
-    const content = document.createElement("p");
-    content.className = "answer-card-text";
-    content.textContent = text;
-
-    card.appendChild(content);
-    answer.appendChild(card);
-    return;
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  } catch (error) {
+    console.warn("Could not clear history:", error);
   }
-
-  matches.forEach((match, index) => {
-    const config = sections.find(
-      (item) => item.heading === match[1].toUpperCase()
-    );
-
-    if (!config) return;
-
-    const start = match.index + match[0].length;
-    const end = index + 1 < matches.length
-      ? matches[index + 1].index
-      : text.length;
-
-    const contentText = text.slice(start, end).trim();
-    if (!contentText) return;
-
-    const card = document.createElement("article");
-    card.className = `answer-card ${config.color}`;
-
-    const header = document.createElement("div");
-    header.className = "answer-card-header";
-
-    const icon = document.createElement("span");
-    icon.className = "answer-card-icon";
-    icon.textContent = config.icon;
-
-    const title = document.createElement("h4");
-    title.textContent = config.label;
-
-    header.append(icon, title);
-
-    const content = document.createElement("p");
-    content.className = "answer-card-text";
-    content.textContent = contentText;
-
-    card.append(header, content);
-    answer.appendChild(card);
-  });
-}
-
-function showResponseTime(milliseconds) {
-  let timing = document.getElementById("response-time");
-
-  if (!timing) {
-    timing = document.createElement("p");
-    timing.id = "response-time";
-    timing.className = "response-time";
-    answer.insertAdjacentElement("afterend", timing);
-  }
-
-  timing.textContent = `⏱ AI response time: ${(milliseconds / 1000).toFixed(1)} seconds`;
-}
-
-wasteInput.addEventListener("input", () => {
-  charCount.textContent = `${wasteInput.value.length} / 1000`;
 });
 
-document.querySelectorAll(".example-chip").forEach((button) => {
-  button.addEventListener("click", () => {
-    wasteInput.value = button.dataset.example || "";
-    charCount.textContent = `${wasteInput.value.length} / 1000`;
-    wasteInput.focus();
-  });
-});
+/* =========================================
+   AI Waste Analysis
+   ========================================= */
 
-form.addEventListener("submit", async (event) => {
+form?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  if (requestInProgress) return;
+  if (isAnalyzing) return;
 
-  const waste = wasteInput.value.trim();
+  const waste = wasteInput?.value.trim() || "";
 
   if (!waste) {
-    wasteInput.focus();
+    showError("Please describe the waste item first.");
+    wasteInput?.focus();
     return;
   }
 
-  requestInProgress = true;
-  latestWaste = waste;
+  if (waste.length > 1000) {
+    showError("Description must be 1000 characters or less.");
+    return;
+  }
 
-  analyzeBtn.disabled = true;
-  buttonText.textContent = "Analyzing...";
-  errorMessage.hidden = true;
-  showState("loading");
+  hideError();
+  setLoading(true);
 
-  const startedAt = performance.now();
+  const startTime = performance.now();
 
   try {
     const response = await fetch("/api/classify", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({ waste })
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || "AI analysis failed.");
+      throw new Error(
+        data.error || `Analysis failed (HTTP ${response.status}).`
+      );
     }
 
-    latestAnswer = data.answer || "";
-
-    if (!latestAnswer.trim()) {
-      throw new Error("The AI returned an empty response.");
+    if (typeof data.answer !== "string" || !data.answer.trim()) {
+      throw new Error("The AI returned an empty response. Please try again.");
     }
 
-    const elapsed = performance.now() - startedAt;
+    const elapsedMs = Math.round(performance.now() - startTime);
+    const answer = data.answer.trim();
 
-    renderAnswer(latestAnswer);
-    showResponseTime(elapsed);
-    showState("result");
+    displayAnswer(answer);
+
+    if (responseTime) {
+      responseTime.textContent =
+        `Response time: ${(elapsedMs / 1000).toFixed(1)} seconds`;
+    }
+
+    if (emptyState) emptyState.hidden = true;
+    if (resultContent) resultContent.hidden = false;
 
     saveHistory({
       waste,
-      answer: latestAnswer,
+      answer,
       date: new Date().toISOString(),
-      responseTimeMs: Math.round(elapsed)
+      responseTimeMs: elapsedMs
+    });
+
+    resultContent?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest"
     });
   } catch (error) {
-    showState("empty");
-    errorMessage.textContent = error.message ||
-      "Could not complete the analysis. Check the server and Ollama.";
-    errorMessage.hidden = false;
+    console.error("EcoSort AI analysis error:", error);
+
+    showError(
+      error.message ||
+      "Could not analyze your waste. Check the server and try again."
+    );
+
+    if (emptyState && !latestAnswer) {
+      emptyState.hidden = false;
+    }
   } finally {
-    requestInProgress = false;
-    analyzeBtn.disabled = false;
-    buttonText.textContent = "Analyze with AI";
+    setLoading(false);
   }
 });
 
-copyBtn.addEventListener("click", async () => {
+/* =========================================
+   Copy AI Result
+   ========================================= */
+
+copyBtn?.addEventListener("click", async () => {
+  if (!latestAnswer) {
+    showError("There is no result to copy yet.");
+    return;
+  }
+
   try {
     await navigator.clipboard.writeText(latestAnswer);
-    copyBtn.textContent = "Copied ✓";
-  } catch {
-    copyBtn.textContent = "Copy unavailable";
-  }
 
-  setTimeout(() => {
-    copyBtn.textContent = "Copy results ↗";
-  }, 1800);
+    const originalText = copyBtn.textContent;
+    copyBtn.textContent = "Copied! ✓";
+
+    window.setTimeout(() => {
+      if (copyBtn.isConnected) {
+        copyBtn.textContent = originalText;
+      }
+    }, 1800);
+  } catch (error) {
+    console.error("Clipboard error:", error);
+
+    showError(
+      "Could not copy automatically. Please select and copy the result manually."
+    );
+  }
 });
 
-clearHistoryBtn?.addEventListener("click", () => {
-  if (!getHistory().length) return;
+/* =========================================
+   Footer Year
+   ========================================= */
 
-  if (confirm("Clear all saved analysis history?")) {
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistory();
-  }
-});
+const yearElement = document.getElementById("current-year");
+
+if (yearElement) {
+  yearElement.textContent = new Date().getFullYear();
+}
+
+/* =========================================
+   Initialize
+   ========================================= */
 
 renderHistory();
