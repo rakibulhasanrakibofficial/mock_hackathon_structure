@@ -1,0 +1,13 @@
+
+{
+  "name": "ecosort-ai",
+  "version": "1.0.0",
+  "description": "AI-powered waste sorting and recycling assistant",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

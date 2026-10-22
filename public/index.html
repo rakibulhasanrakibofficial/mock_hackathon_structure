@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#10231c">
+  <title>EcoSort AI | Smarter Waste Sorting</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: Arial, sans-serif;
+      background: #0b1512; color: #eef8f0;
+      min-height: 100vh;
+    }
+    header, main { max-width: 960px; margin: auto; padding: 24px; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 22px; font-weight: 800; color: #8ee6a4; }
+    .pill { border: 1px solid #345342; border-radius: 30px; padding: 8px 12px; color: #a8dcb5; }
+    .hero { padding-top: 48px; padding-bottom: 30px; }
+    h1 { font-size: clamp(36px, 7vw, 62px); margin: 16px 0; line-height: 1.05; }
+    h1 span { color: #8ee6a4; }
+    p { color: #b9c9bf; line-height: 1.7; }
+    .panel {
+      background: #14241d; border: 1px solid #294536;
+      border-radius: 20px; padding: 24px; margin: 18px 0;
+    }
+    label { display: block; font-weight: bold; margin-bottom: 12px; }
+    textarea {
+      width: 100%; min-height: 120px; padding: 16px;
+      background: #0c1913; color: white;
+      border: 1px solid #365743; border-radius: 12px;
+      font: inherit; resize: vertical;
+    }
+    button {
+      border: 0; background: #8ee6a4; color: #10231c;
+      padding: 14px 20px; border-radius: 12px;
+      font-weight: 800; cursor: pointer; margin-top: 14px;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .examples button {
+      margin: 0; background: #20382b; color: #d5f5dc;
+      border: 1px solid #365743; padding: 9px 12px;
+    }
+    #result { white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }
+    .hidden { display: none; }
+    footer { text-align: center; padding: 28px; color: #8da698; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">♻ EcoSort AI</div>
+    <div class="pill">AI Waste Guide</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="pill">SMALL ACTIONS · BIG IMPACT</div>
+      <h1>Waste less.<br><span>Sort smarter.</span></h1>
+      <p>Describe an item or waste material to get practical sorting, recycling and disposal guidance powered by AI.</p>
+    </section>
+
+    <section class="panel">
+      <label for="waste">What do you want to dispose of?</label>
+      <textarea id="waste" maxlength="2000"
+        placeholder="Example: An empty plastic water bottle with its cap..."></textarea>
+
+      <div class="examples">
+        <button type="button" data-text="An empty plastic water bottle">Plastic bottle</button>
+        <button type="button" data-text="Leftover vegetable peels">Food scraps</button>
+        <button type="button" data-text="Old newspapers and cardboard">Paper waste</button>
+        <button type="button" data-text="A used household battery">Battery</button>
+      </div>
+
+      <button id="submit">Analyze waste →</button>
+      <p id="status" role="status"></p>
+    </section>
+
+    <section id="output" class="panel hidden" aria-live="polite">
+      <h2>♻ Your sorting guide</h2>
+      <div id="result"></div>
+      <button id="copy" type="button">Copy guide</button>
+    </section>
+  </main>
+
+  <footer>EcoSort AI · Make responsible disposal easier.</footer>
+
+  <script>
+    const input = document.getElementById("waste");
+    const submit = document.getElementById("submit");
+    const status = document.getElementById("status");
+    const output = document.getElementById("output");
+    const result = document.getElementById("result");
+
+    document.querySelectorAll("[data-text]").forEach(button => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.text;
+        input.focus();
+      });
+    });
+
+    submit.addEventListener("click", async () => {
+      const waste = input.value.trim();
+
+      if (!waste) {
+        status.textContent = "Please describe a waste item first.";
+        input.focus();
+        return;
+      }
+
+      submit.disabled = true;
+      status.textContent = "Analyzing... please wait.";
+      output.classList.add("hidden");
+
+      try {
+        const response = await fetch("/api/classify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ waste })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Request failed.");
+
+        result.textContent = data.answer || "No answer returned.";
+        output.classList.remove("hidden");
+        status.textContent = "Analysis complete.";
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    document.getElementById("copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(result.textContent);
+        status.textContent = "Guide copied.";
+      } catch {
+        status.textContent = "Copy unavailable in this browser.";
+      }
+    });
+  </script>
+</body>
+</html>
