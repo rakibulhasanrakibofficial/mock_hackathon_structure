@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#071a16">
-  <meta name="description" content="EcoSort AI helps you sort, recycle, and reuse waste responsibly.">
+  <meta name="description" content="EcoSort AI helps you identify waste and discover responsible disposal and recycling options.">
   <title>EcoSort AI | Smart Waste Sorting</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
@@ -13,8 +13,8 @@
 <body>
   <header class="site-header">
     <div class="container header-content">
-      <a class="logo" href="#home"><span>🌿</span> EcoSort <strong>AI</strong></a>
-      <nav>
+      <a class="logo" href="#home">🌿 EcoSort <strong>AI</strong></a>
+      <nav aria-label="Main navigation">
         <a href="#analyzer">AI Analyzer</a>
         <a href="#categories">Categories</a>
         <a href="#history">History</a>
@@ -29,13 +29,14 @@
         <div>
           <span class="eyebrow">🌍 SMARTER WASTE MANAGEMENT</span>
           <h1>Turn Waste Into <span>Worth.</span></h1>
-          <p class="muted">Identify waste, discover responsible disposal options, and make greener choices with AI-powered guidance.</p>
+          <p class="muted">Identify waste, discover recycling options, and make greener choices with AI-powered guidance.</p>
           <div class="hero-actions">
             <a class="primary-btn" href="#analyzer">Analyze Your Waste →</a>
             <a class="secondary-btn" href="#categories">Explore Categories</a>
           </div>
           <p class="small-note">✓ Practical guidance &nbsp; ✓ Safety reminders</p>
         </div>
+
         <div class="hero-card">
           <div class="hero-emoji">♻️</div>
           <span class="eyebrow">A GREENER TOMORROW</span>
@@ -96,7 +97,7 @@
                 <p class="muted small" id="response-time"></p>
               </div>
               <div class="result-actions">
-                <button type="button" id="copy-btn" class="secondary-btn">Copy</button>
+                <button type="button" id="copy-btn" class="secondary-btn">Copy Result</button>
                 <button type="button" id="export-pdf-btn" class="primary-btn">📄 Export PDF</button>
               </div>
             </div>
@@ -109,24 +110,7 @@
             </div>
 
             <div id="answer" class="answer"></div>
-
-            <section id="disposal-checklist" class="checklist">
-              <h3>♻️ Disposal Checklist</h3>
-              <p class="muted small">Use these general reminders alongside the AI advice.</p>
-              <label class="checklist-item">
-                <input type="checkbox" data-check="identify">
-                <span>Identify the material and check local disposal guidance.</span>
-              </label>
-              <label class="checklist-item">
-                <input type="checkbox" data-check="prepare">
-                <span>Prepare the item safely for disposal or recycling.</span>
-              </label>
-              <label class="checklist-item">
-                <input type="checkbox" data-check="dispose">
-                <span>Choose an appropriate collection or disposal facility.</span>
-              </label>
-            </section>
-            <p class="print-note">EcoSort AI provides general guidance. Follow local rules for waste disposal.</p>
+            <p class="print-note">EcoSort AI provides general guidance. Always follow local waste-disposal rules.</p>
           </section>
         </div>
       </div>
@@ -147,25 +131,29 @@
             <p class="muted">Check the resin code and local recycling rules before disposal.</p>
             <span class="category-tip">Tip: Keep recyclable containers appropriately clean.</span>
           </article>
+
           <article class="category-card">
             <div class="category-icon">📦</div>
-            <h3>Paper & Cardboard</h3>
+            <h3>Paper &amp; Cardboard</h3>
             <p class="muted">Keep recyclable paper dry and separate heavily contaminated packaging.</p>
             <span class="category-tip">Tip: Flatten boxes when practical.</span>
           </article>
+
           <article class="category-card">
             <div class="category-icon">🍃</div>
             <h3>Organic</h3>
             <p class="muted">Food scraps may be suitable for composting where facilities exist.</p>
             <span class="category-tip">Tip: Follow your local composting guidance.</span>
           </article>
+
           <article class="category-card">
             <div class="category-icon">🔋</div>
             <h3>Electronic</h3>
             <p class="muted">Batteries and electronics need appropriate collection and handling.</p>
-            <span class="category-tip">Tip: Never put damaged batteries in ordinary recycling.</span>
+            <span class="category-tip">Tip: Damaged batteries need special care.</span>
           </article>
         </div>
+
         <p class="disclaimer">Disposal and recycling options depend on your location and available facilities.</p>
       </div>
     </section>
@@ -181,7 +169,7 @@
           <button type="button" id="clear-history" class="secondary-btn">Clear History</button>
         </div>
         <div id="history-list" class="history-grid">
-          <div class="history-empty">📝 <p>Your analyses will appear here.</p></div>
+          <div class="history-empty">📝<p>Your analyses will appear here.</p></div>
         </div>
       </div>
     </section>

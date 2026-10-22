@@ -1,10 +1,6 @@
 
 "use strict";
 
-/* =========================================
-   EcoSort AI — Complete Frontend
-   ========================================= */
-
 const $ = (selector) => document.querySelector(selector);
 
 const form = $("#waste-form");
@@ -32,12 +28,8 @@ const HISTORY_KEY = "ecosort-ai-history";
 const MAX_HISTORY = 10;
 
 let latestAnswer = "";
-let isAnalyzing = false;
 let currentReportDate = new Date().toISOString();
-
-/* =========================================
-   Helpers
-   ========================================= */
+let isAnalyzing = false;
 
 function updateCharCount() {
   if (charCount && wasteInput) {
@@ -47,14 +39,12 @@ function updateCharCount() {
 
 function showError(message) {
   if (!errorMessage) return;
-
   errorMessage.textContent = message;
   errorMessage.hidden = false;
 }
 
 function hideError() {
   if (!errorMessage) return;
-
   errorMessage.textContent = "";
   errorMessage.hidden = true;
 }
@@ -63,13 +53,7 @@ function setLoading(loading) {
   isAnalyzing = loading;
 
   if (analyzeBtn) analyzeBtn.disabled = loading;
-
-  if (buttonText) {
-    buttonText.textContent = loading
-      ? "Analyzing..."
-      : "Analyze with AI →";
-  }
-
+  if (buttonText) buttonText.textContent = loading ? "Analyzing..." : "Analyze with AI →";
   if (loadingState) loadingState.hidden = !loading;
   if (loading && emptyState) emptyState.hidden = true;
   if (loading && resultContent) resultContent.hidden = true;
@@ -77,33 +61,15 @@ function setLoading(loading) {
 
 function formatDate(value) {
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "Unknown date";
-
-  return date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString();
 }
 
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[character]);
-}
-
-/* =========================================
-   Character Counter and Example Buttons
-   ========================================= */
-
+/* Example chips */
 wasteInput?.addEventListener("input", updateCharCount);
 updateCharCount();
 
 document.querySelectorAll("[data-example]").forEach((button) => {
   button.addEventListener("click", () => {
-    if (!wasteInput) return;
-
     wasteInput.value = button.dataset.example || "";
     updateCharCount();
     hideError();
@@ -111,38 +77,21 @@ document.querySelectorAll("[data-example]").forEach((button) => {
     if (resultContent) resultContent.hidden = true;
     if (emptyState) emptyState.hidden = false;
 
-    $("#analyzer")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-
+    $("#analyzer")?.scrollIntoView({ behavior: "smooth", block: "start" });
     wasteInput.focus({ preventScroll: true });
   });
 });
 
-/* =========================================
-   Display AI Answer Safely
-   ========================================= */
-
+/* Display AI response as safe text */
 function displayAnswer(answer) {
-  if (!answerElement) return;
-
   latestAnswer = answer;
   answerElement.replaceChildren();
 
-  const headings = [
-    "CATEGORY",
-    "DISPOSAL",
-    "RECYCLING",
-    "SAFETY",
-    "REUSE IDEA"
-  ];
-
+  const headings = ["CATEGORY", "DISPOSAL", "RECYCLING", "SAFETY", "REUSE IDEA"];
   let currentBody = null;
 
   answer.split(/\r?\n/).forEach((line) => {
     const text = line.trim();
-
     if (!text) return;
 
     const normalized = text
@@ -160,7 +109,6 @@ function displayAnswer(answer) {
       heading.textContent = normalized;
 
       const paragraph = document.createElement("p");
-
       card.append(heading, paragraph);
       answerElement.appendChild(card);
       currentBody = paragraph;
@@ -170,32 +118,23 @@ function displayAnswer(answer) {
     if (!currentBody) {
       const card = document.createElement("section");
       card.className = "answer-card";
-
-      const paragraph = document.createElement("p");
-      card.appendChild(paragraph);
+      currentBody = document.createElement("p");
+      card.appendChild(currentBody);
       answerElement.appendChild(card);
-      currentBody = paragraph;
     }
 
-    currentBody.textContent +=
-      (currentBody.textContent ? "\n" : "") + text;
+    currentBody.textContent += (currentBody.textContent ? "\n" : "") + text;
   });
 
-  if (!answerElement.children.length) {
-    answerElement.textContent = answer;
-  }
+  if (!answerElement.children.length) answerElement.textContent = answer;
 }
 
-/* =========================================
-   Local History
-   ========================================= */
-
+/* History */
 function getHistory() {
   try {
     const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
     return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.warn("History read failed:", error);
+  } catch {
     return [];
   }
 }
@@ -203,42 +142,53 @@ function getHistory() {
 function saveHistory(item) {
   try {
     const history = getHistory();
-
     history.unshift(item);
-
-    localStorage.setItem(
-      HISTORY_KEY,
-      JSON.stringify(history.slice(0, MAX_HISTORY))
-    );
-
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
     renderHistory();
   } catch (error) {
     console.warn("History save failed:", error);
-    showError("Analysis succeeded, but this browser could not save history.");
   }
 }
 
+function loadReport(item) {
+  wasteInput.value = item.waste || "";
+  updateCharCount();
+
+  currentReportDate = item.date || new Date().toISOString();
+  displayAnswer(item.answer || "");
+
+  reportWaste.textContent = item.waste || "Unknown item";
+  reportDate.textContent = formatDate(currentReportDate);
+
+  responseTime.textContent = typeof item.responseTimeMs === "number"
+    ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
+    : "";
+
+  hideError();
+  loadingState.hidden = true;
+  emptyState.hidden = true;
+  resultContent.hidden = false;
+
+  $("#analyzer").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderHistory() {
-  if (!historyList) return;
-
   historyList.replaceChildren();
-
   const history = getHistory();
 
-  if (history.length === 0) {
+  if (!history.length) {
     const empty = document.createElement("div");
     empty.className = "history-empty";
     empty.append("📝");
 
     const message = document.createElement("p");
     message.textContent = "Your analyses will appear here.";
-
     empty.appendChild(message);
     historyList.appendChild(empty);
     return;
   }
 
-  history.forEach((item, index) => {
+  history.forEach((item) => {
     const card = document.createElement("article");
     card.className = "history-card";
 
@@ -259,15 +209,11 @@ function renderHistory() {
     const viewButton = document.createElement("button");
     viewButton.type = "button";
     viewButton.textContent = "View report";
-
-    viewButton.addEventListener("click", () => {
-      loadReport(item);
-    });
+    viewButton.addEventListener("click", () => loadReport(item));
 
     const pdfButton = document.createElement("button");
     pdfButton.type = "button";
     pdfButton.textContent = "Export PDF";
-
     pdfButton.addEventListener("click", () => {
       loadReport(item);
       exportPDF();
@@ -279,72 +225,24 @@ function renderHistory() {
   });
 }
 
-function loadReport(item) {
-  if (wasteInput) {
-    wasteInput.value = item.waste || "";
-    updateCharCount();
-  }
-
-  currentReportDate = item.date || new Date().toISOString();
-
-  displayAnswer(item.answer || "");
-
-  if (reportWaste) {
-    reportWaste.textContent = item.waste || "Unknown item";
-  }
-
-  if (reportDate) {
-    reportDate.textContent = formatDate(currentReportDate);
-  }
-
-  if (responseTime) {
-    responseTime.textContent =
-      typeof item.responseTimeMs === "number"
-        ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
-        : "";
-  }
-
-  hideError();
-
-  if (loadingState) loadingState.hidden = true;
-  if (emptyState) emptyState.hidden = true;
-  if (resultContent) resultContent.hidden = false;
-
-  $("#analyzer")?.scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
-}
-
 clearHistoryBtn?.addEventListener("click", () => {
-  if (getHistory().length === 0) return;
+  if (!getHistory().length) return;
+  if (!confirm("Clear all saved analyses from this browser?")) return;
 
-  if (!window.confirm("Clear all saved analyses from this browser?")) {
-    return;
-  }
-
-  try {
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistory();
-  } catch (error) {
-    showError("Could not clear history in this browser.");
-  }
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
 });
 
-/* =========================================
-   AI Analysis
-   ========================================= */
-
+/* AI analysis */
 form?.addEventListener("submit", async (event) => {
   event.preventDefault();
-
   if (isAnalyzing) return;
 
-  const waste = wasteInput?.value.trim() || "";
+  const waste = wasteInput.value.trim();
 
   if (!waste) {
     showError("Please describe the waste item first.");
-    wasteInput?.focus();
+    wasteInput.focus();
     return;
   }
 
@@ -355,7 +253,6 @@ form?.addEventListener("submit", async (event) => {
 
   hideError();
   setLoading(true);
-
   const startedAt = performance.now();
 
   try {
@@ -368,9 +265,7 @@ form?.addEventListener("submit", async (event) => {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(
-        data.error || `AI request failed (HTTP ${response.status}).`
-      );
+      throw new Error(data.error || `AI request failed (HTTP ${response.status}).`);
     }
 
     if (typeof data.answer !== "string" || !data.answer.trim()) {
@@ -381,19 +276,14 @@ form?.addEventListener("submit", async (event) => {
     const elapsedMs = Math.round(performance.now() - startedAt);
 
     currentReportDate = new Date().toISOString();
-
     displayAnswer(answer);
 
-    if (reportWaste) reportWaste.textContent = waste;
-    if (reportDate) reportDate.textContent = formatDate(currentReportDate);
+    reportWaste.textContent = waste;
+    reportDate.textContent = formatDate(currentReportDate);
+    responseTime.textContent = `Response time: ${(elapsedMs / 1000).toFixed(1)} seconds`;
 
-    if (responseTime) {
-      responseTime.textContent =
-        `Response time: ${(elapsedMs / 1000).toFixed(1)} seconds`;
-    }
-
-    if (emptyState) emptyState.hidden = true;
-    if (resultContent) resultContent.hidden = false;
+    emptyState.hidden = true;
+    resultContent.hidden = false;
 
     saveHistory({
       waste,
@@ -402,26 +292,17 @@ form?.addEventListener("submit", async (event) => {
       responseTimeMs: elapsedMs
     });
 
-    resultContent?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest"
-    });
+    resultContent.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (error) {
     console.error("EcoSort AI error:", error);
     showError(error.message || "Could not analyze the item. Please try again.");
-
-    if (emptyState && !latestAnswer) {
-      emptyState.hidden = false;
-    }
+    if (emptyState && !latestAnswer) emptyState.hidden = false;
   } finally {
     setLoading(false);
   }
 });
 
-/* =========================================
-   Copy Result
-   ========================================= */
-
+/* Copy result */
 copyBtn?.addEventListener("click", async () => {
   if (!latestAnswer) {
     showError("Analyze an item before copying the result.");
@@ -430,53 +311,37 @@ copyBtn?.addEventListener("click", async () => {
 
   try {
     await navigator.clipboard.writeText(latestAnswer);
-
     const oldText = copyBtn.textContent;
     copyBtn.textContent = "Copied ✓";
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       if (copyBtn.isConnected) copyBtn.textContent = oldText;
     }, 1800);
-  } catch (error) {
-    showError("Copy failed. Please select the result text and copy it manually.");
+  } catch {
+    showError("Copy failed. Please select and copy the result manually.");
   }
 });
 
-/* =========================================
-   PDF Export
-   ========================================= */
-
+/* PDF export */
 function exportPDF() {
   if (!latestAnswer) {
     showError("Analyze a waste item before exporting a report.");
     return;
   }
 
-  const originalTitle = document.title;
-  const datePart = new Date(currentReportDate)
-    .toISOString()
-    .slice(0, 10);
+  const oldTitle = document.title;
+  const datePart = new Date(currentReportDate).toISOString().slice(0, 10);
 
   document.title = `EcoSort-AI-Report-${datePart}`;
-
-  // The browser opens its print dialog.
-  // Select "Save as PDF" as the destination.
   window.print();
-
-  // Restore the page title after the print dialog closes.
-  document.title = originalTitle;
+  document.title = oldTitle;
 }
 
 exportPdfBtn?.addEventListener("click", exportPDF);
 
-/* =========================================
-   Footer and Startup
-   ========================================= */
-
+/* Footer year */
 const yearElement = $("#current-year");
+if (yearElement) yearElement.textContent = new Date().getFullYear();
 
-if (yearElement) {
-  yearElement.textContent = new Date().getFullYear();
-}
-
+/* Initialize */
 renderHistory();
