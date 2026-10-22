@@ -18,12 +18,11 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
     app: "EcoSort AI",
-    model: MODEL,
-    ollamaUrl: OLLAMA_URL
+    model: MODEL
   });
 });
 
-// Check Ollama connectivity
+// Check Ollama connection and model
 app.get("/api/ollama-status", async (req, res) => {
   try {
     const response = await fetch(`${OLLAMA_URL}/api/tags`, {
@@ -57,7 +56,7 @@ app.get("/api/ollama-status", async (req, res) => {
   }
 });
 
-// Classify waste with AI
+// Fast, concise waste analysis
 app.post("/api/classify", async (req, res) => {
   const waste = typeof req.body?.waste === "string"
     ? req.body.waste.trim()
@@ -80,39 +79,38 @@ app.post("/api/classify", async (req, res) => {
       role: "system",
       content: `You are EcoSort AI, a practical waste sorting assistant.
 
-Analyze the item and answer using these five headings:
+Answer using these five headings:
 
 CATEGORY
-Identify the likely waste category and briefly explain why.
+Name the likely waste category.
 
 DISPOSAL
-Give clear, practical disposal instructions.
+Give the most useful disposal steps.
 
 RECYCLING
-Explain whether it may be recyclable, how to prepare it,
-and note that local recycling rules vary.
+Explain recycling options and preparation.
 
 SAFETY
-Mention relevant hazards and precautions.
+Mention important hazards and precautions.
 
 REUSE IDEA
-Suggest one realistic reuse idea if appropriate.
+Give one practical reuse suggestion if appropriate.
 
-Instructions:
-- Use simple, concise English.
-- Aim for 80-120 words total.
+Rules:
+- Use simple English.
+- Keep the whole answer around 60-100 words.
+- Be specific and actionable.
 - Do not add an introduction or repeat the question.
 - Never invent local recycling rules.
-- Do not claim an item is recyclable everywhere.
-- State uncertainty if the item's material is unknown.
-- Explain when different parts require different disposal methods.
-- Never encourage unsafe handling of leaking batteries,
-  unknown chemicals, medical waste, or hazardous sharp objects.
-- Do not reveal internal reasoning.`
+- Recycling availability varies by location.
+- State uncertainty when the material is unknown.
+- Never recommend unsafe handling of batteries, chemicals,
+  medical waste, or hazardous sharp objects.
+- Do not provide internal reasoning.`
     },
     {
       role: "user",
-      content: `Analyze this waste item: ${waste}`
+      content: `Waste item: ${waste}`
     }
   ];
 
@@ -126,10 +124,11 @@ Instructions:
         model: MODEL,
         stream: false,
         think: false,
-        keep_alive: "10m",
+        keep_alive: "15m",
         options: {
           temperature: 0.2,
-          num_predict: 180
+          num_predict: 140,
+          num_ctx: 2048
         },
         messages
       }),
@@ -139,18 +138,13 @@ Instructions:
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error(
-        "Ollama API error:",
-        response.status,
-        data.error || "Unknown error"
-      );
+      console.error("Ollama error:", data.error || response.status);
 
       return res.status(502).json({
         error: data.error || "The AI service request failed."
       });
     }
 
-    // Extract the normal chat response.
     const answer = data.message?.content?.trim();
 
     if (!answer) {
@@ -169,17 +163,14 @@ Instructions:
   } catch (error) {
     console.error("EcoSort AI error:", error.message);
 
-    if (
+    const timedOut =
       error.name === "TimeoutError" ||
-      error.name === "AbortError"
-    ) {
-      return res.status(504).json({
-        error: "AI response timed out. Please try again."
-      });
-    }
+      error.name === "AbortError";
 
-    return res.status(503).json({
-      error: "Cannot connect to Ollama. Make sure it is running."
+    return res.status(timedOut ? 504 : 503).json({
+      error: timedOut
+        ? "AI response took too long. Please try again."
+        : "Cannot connect to Ollama. Make sure it is running."
     });
   }
 });
@@ -191,7 +182,7 @@ app.use("/api", (req, res) => {
   });
 });
 
-// Handle invalid JSON
+// Invalid JSON handler
 app.use((error, req, res, next) => {
   if (error instanceof SyntaxError && error.status === 400) {
     return res.status(400).json({
@@ -202,7 +193,6 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`🌿 EcoSort AI running at http://localhost:${PORT}`);
   console.log(`🤖 AI model: ${MODEL}`);
