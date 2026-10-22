@@ -4,328 +4,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#071b17">
 
-  <meta name="description"
-        content="EcoSort AI helps you sort waste, discover recycling options, and make sustainable choices.">
+  <meta
+    name="description"
+    content="EcoSort AI helps you identify waste categories and learn how to dispose, recycle, and reuse waste responsibly."
+  >
 
-  <title>EcoSort AI — Small Actions, Greener Future</title>
+  <meta name="theme-color" content="#f5f8f2">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+  <title>EcoSort AI | Smart Waste Sorting</title>
 
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
 </head>
 
 <body>
-  <div class="orb orb-one" aria-hidden="true"></div>
-  <div class="orb orb-two" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="container header-content">
+      <a class="logo" href="/" aria-label="EcoSort AI home">
+        <span class="logo-icon">🌿</span>
+        <span>EcoSort <strong>AI</strong></span>
+      </a>
 
-  <!-- Navigation -->
-  <header class="navbar">
-    <a href="#" class="brand" aria-label="EcoSort AI home">
-      <span class="brand-icon" aria-hidden="true">♻</span>
-      <span>EcoSort<span class="brand-ai"> AI</span></span>
-    </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#analyzer">AI Analyzer</a>
+        <a href="#categories">Categories</a>
+        <a href="#history">History</a>
+      </nav>
 
-    <nav class="nav-right" aria-label="Main navigation">
-      <span class="status-dot" aria-hidden="true"></span>
-      <span class="status-text">AI ASSISTANT</span>
-      <a href="#analyzer" class="nav-button">Get Started ↗</a>
-    </nav>
+      <a class="header-cta" href="#analyzer">Try AI <span>↗</span></a>
+    </div>
   </header>
 
   <main>
-    <!-- Hero -->
     <section class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow">
-          <span aria-hidden="true">✦</span>
-          SMART WASTE MANAGEMENT
-        </div>
+      <div class="container hero-content">
+        <div class="hero-copy">
+          <span class="eyebrow">🌍 SMARTER WASTE MANAGEMENT</span>
 
-        <h1>
-          Small actions.<br>
-          <span class="gradient-text">Greener future.</span>
-        </h1>
+          <h1>Turn Waste Into<br><span>Worth.</span></h1>
 
-        <p class="hero-description">
-          Not sure where your waste belongs? Let AI help you sort it,
-          explore recycling options, and give everyday items a second life.
-        </p>
+          <p>
+            Not sure where your waste belongs? Let AI help you identify
+            waste, discover recycling options, and make greener choices.
+          </p>
 
-        <div class="hero-actions">
-          <a href="#analyzer" class="primary-button">
-            Start Sorting <span aria-hidden="true">→</span>
-          </a>
-          <span class="hero-note">🌱 One item at a time</span>
-        </div>
-
-        <div class="mini-stats" aria-label="Three simple steps">
-          <div>
-            <strong>01</strong>
-            <span>Describe</span>
+          <div class="hero-actions">
+            <a class="primary-btn" href="#analyzer">
+              Analyze Your Waste <span>→</span>
+            </a>
+            <a class="secondary-btn" href="#categories">
+              Explore Categories
+            </a>
           </div>
-          <span class="stat-arrow" aria-hidden="true">→</span>
-          <div>
-            <strong>02</strong>
-            <span>Analyze</span>
-          </div>
-          <span class="stat-arrow" aria-hidden="true">→</span>
-          <div>
-            <strong>03</strong>
-            <span>Recycle</span>
-          </div>
-        </div>
-      </div>
 
-      <div class="hero-art" aria-label="Recycling-inspired illustration">
-        <div class="art-glow"></div>
-
-        <div class="planet">
-          <div class="planet-inner">
-            <span class="leaf leaf-one" aria-hidden="true">❧</span>
-            <span class="planet-symbol" aria-hidden="true">♻</span>
-            <span class="planet-caption">THINK GREEN</span>
-            <span class="leaf leaf-two" aria-hidden="true">❧</span>
+          <div class="hero-note">
+            <span>✓</span> AI-powered guidance
+            <span>✓</span> Simple disposal tips
           </div>
         </div>
 
-        <div class="floating-tag tag-top">🌿 Make it sustainable</div>
-        <div class="floating-tag tag-bottom">
-          <span class="tiny-pulse" aria-hidden="true"></span>
-          Better habits start here
+        <div class="hero-visual" aria-label="Illustration of recycling">
+          <div class="visual-glow"></div>
+          <div class="visual-card">
+            <div class="plant-illustration" aria-hidden="true">♻️</div>
+            <span class="visual-tag">A GREENER TOMORROW</span>
+            <h2>Small actions.<br>Big impact.</h2>
+            <p>Every item sorted is a step towards a cleaner planet.</p>
+            <div class="visual-progress">
+              <span></span>
+            </div>
+            <div class="visual-footer">
+              <span>MAKE IT COUNT</span>
+              <span>🌱</span>
+            </div>
+          </div>
+          <div class="floating-badge badge-top">🌱 Think Green</div>
+          <div class="floating-badge badge-bottom">♻️ Sort Smarter</div>
         </div>
-
-        <span class="sparkle sparkle-one" aria-hidden="true">✦</span>
-        <span class="sparkle sparkle-two" aria-hidden="true">✧</span>
       </div>
     </section>
 
-    <!-- Waste Analyzer -->
     <section class="analyzer-section" id="analyzer">
-      <div class="section-heading">
-        <div>
-          <span class="section-kicker">YOUR PERSONAL ECO ASSISTANT</span>
-          <h2>Where does it <span class="gradient-text">belong?</span></h2>
-          <p>
-            Describe an item and discover practical waste disposal guidance.
-          </p>
+      <div class="container">
+        <div class="section-heading">
+          <span class="eyebrow">YOUR AI ASSISTANT</span>
+          <h2>What are you throwing away?</h2>
+          <p>Describe an item and get practical waste-sorting guidance.</p>
         </div>
 
-        <div class="ai-pill">
-          <span aria-hidden="true">✦</span>
-          Powered by local AI
-        </div>
-      </div>
-
-      <div class="workspace">
-        <!-- Input Panel -->
-        <div class="input-panel glass-card">
-          <div class="panel-heading">
-            <div class="panel-icon" aria-hidden="true">✎</div>
-            <div>
-              <h3>Describe your waste</h3>
-              <p>Tell us what the item is made of.</p>
-            </div>
-          </div>
-
+        <div class="analyzer-card">
           <form id="waste-form">
-            <label for="waste">ITEM DESCRIPTION</label>
+            <label for="waste">Describe your waste item</label>
 
-            <textarea
-              id="waste"
-              name="waste"
-              maxlength="1000"
-              required
-              placeholder="Example: An empty plastic water bottle with its cap..."
-            ></textarea>
+            <div class="input-wrapper">
+              <textarea
+                id="waste"
+                name="waste"
+                rows="3"
+                maxlength="1000"
+                placeholder="e.g. An empty plastic water bottle..."
+                required
+              ></textarea>
 
-            <div class="input-meta">
-              <span>Be as specific as you can</span>
-              <span id="char-count">0 / 1000</span>
+              <span id="char-count" class="char-count">0/1000</span>
             </div>
 
-            <div class="examples-title">QUICK EXAMPLES</div>
+            <div class="example-heading">NEED AN IDEA? TRY ONE</div>
 
-            <div class="example-list">
-              <button type="button" class="example-chip"
-                      data-example="An empty plastic water bottle">
-                🧴 Plastic
+            <div class="example-chips">
+              <button type="button" class="example-chip" data-example="An empty plastic water bottle">
+                🧴 Plastic bottle
               </button>
-
-              <button type="button" class="example-chip"
-                      data-example="Used cardboard packaging">
+              <button type="button" class="example-chip" data-example="Used cardboard packaging">
                 📦 Cardboard
               </button>
-
-              <button type="button" class="example-chip"
-                      data-example="Leftover vegetable food scraps">
-                🥬 Food scraps
-              </button>
-
-              <button type="button" class="example-chip"
-                      data-example="An old household battery">
+              <button type="button" class="example-chip" data-example="An old mobile phone battery">
                 🔋 Battery
               </button>
-
-              <button type="button" class="example-chip"
-                      data-example="A broken glass jar">
-                🫙 Glass
+              <button type="button" class="example-chip" data-example="Leftover food scraps">
+                🍎 Food waste
               </button>
             </div>
 
-            <button type="submit" id="analyze-btn" class="analyze-button">
-              <span id="button-text">Analyze with AI</span>
-              <span aria-hidden="true">✦</span>
+            <button type="submit" id="analyze-btn" class="primary-btn analyze-btn">
+              <span id="button-text">Analyze with AI →</span>
             </button>
           </form>
 
-          <p class="privacy-note">
-            🔒 Your description is sent to your configured AI server.
-          </p>
-        </div>
+          <div
+            id="error-message"
+            class="error-message"
+            role="alert"
+            aria-live="polite"
+            hidden
+          ></div>
 
-        <!-- Result Panel -->
-        <div class="result-panel glass-card" aria-live="polite">
-          <div class="result-top">
-            <div class="result-icon" aria-hidden="true">✦</div>
-
-            <div>
-              <h3>Smart insights</h3>
-              <p>Your personalized sorting guide</p>
-            </div>
-
-            <span class="result-label">AI RESULT</span>
-          </div>
-
-          <!-- Initial state -->
-          <div id="empty-state" class="empty-state">
-            <div class="empty-illustration">
-              <div class="empty-circle" aria-hidden="true">♻</div>
-              <span class="float-leaf" aria-hidden="true">✿</span>
-              <span class="float-star" aria-hidden="true">✦</span>
-            </div>
-
-            <h3>Your greener choice starts here</h3>
-            <p>
-              Analyze an item to explore its waste category, disposal tips,
-              recycling options, safety guidance, and reuse ideas.
-            </p>
-
-            <div class="empty-footer">
-              <span aria-hidden="true">✦</span>
-              A little knowledge makes a big difference
-            </div>
-          </div>
-
-          <!-- Loading state -->
           <div id="loading-state" class="loading-state" hidden>
-            <div class="loader" aria-hidden="true"></div>
-            <h3>Thinking sustainably...</h3>
-            <p>AI is preparing your sorting guide. This may take a little while.</p>
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <h3>Analyzing your waste...</h3>
+            <p>Our AI is preparing practical sorting recommendations.</p>
           </div>
 
-          <!-- AI results rendered by app.js -->
           <div id="result-content" class="result-content" hidden>
-            <div class="answer-badge">🌿 ANALYSIS COMPLETE</div>
+            <div class="result-heading">
+              <div>
+                <span class="eyebrow">AI ANALYSIS</span>
+                <h3>Your waste guide</h3>
+                <p id="response-time"></p>
+              </div>
 
-            <div id="answer" class="answer-text"></div>
+              <button type="button" id="copy-btn" class="secondary-btn">
+                Copy Results
+              </button>
+            </div>
 
-            <button id="copy-btn" type="button" class="copy-button">
-              Copy results ↗
-            </button>
+            <div id="answer" class="answer"></div>
           </div>
 
-          <!-- Error state -->
-          <div id="error-message" class="error-message" role="alert" hidden></div>
+          <div id="empty-state" class="empty-state">
+            <div class="empty-icon" aria-hidden="true">♻️</div>
+            <h3>Your greener choice starts here</h3>
+            <p>Enter a waste item above to receive your personalized guide.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Waste Categories -->
-    <section class="categories" id="categories">
-      <div class="category-heading">
-        <span class="section-kicker">KNOW YOUR WASTE</span>
-        <h2>Every item has a <span class="gradient-text">place.</span></h2>
+    <section class="categories-section" id="categories">
+      <div class="container">
+        <div class="section-heading">
+          <span class="eyebrow">KNOW YOUR WASTE</span>
+          <h2>Waste comes in many forms</h2>
+          <p>Understanding the material is the first step to sorting it correctly.</p>
+        </div>
+
+        <div class="categories-grid">
+          <article class="category-card plastic-card">
+            <div class="category-icon" aria-hidden="true">🧴</div>
+            <h3>Plastic</h3>
+            <p>Check the resin code and local recycling rules before disposal.</p>
+            <button type="button" class="category-link" data-example="A clean empty plastic bottle">
+              Analyze plastic <span>→</span>
+            </button>
+          </article>
+
+          <article class="category-card paper-card">
+            <div class="category-icon" aria-hidden="true">📦</div>
+            <h3>Paper & Cardboard</h3>
+            <p>Keep recyclable paper dry and remove food-contaminated parts.</p>
+            <button type="button" class="category-link" data-example="Used cardboard packaging">
+              Analyze paper <span>→</span>
+            </button>
+          </article>
+
+          <article class="category-card organic-card">
+            <div class="category-icon" aria-hidden="true">🍃</div>
+            <h3>Organic</h3>
+            <p>Food scraps may be suitable for composting where facilities exist.</p>
+            <button type="button" class="category-link" data-example="Leftover fruit and vegetable scraps">
+              Analyze organic waste <span>→</span>
+            </button>
+          </article>
+
+          <article class="category-card electronic-card">
+            <div class="category-icon" aria-hidden="true">🔋</div>
+            <h3>Electronic</h3>
+            <p>Batteries and electronics need suitable collection and handling.</p>
+            <button type="button" class="category-link" data-example="An old mobile phone battery">
+              Analyze e-waste <span>→</span>
+            </button>
+          </article>
+        </div>
+
+        <p class="category-disclaimer">
+          Disposal and recycling options depend on your location and available facilities.
+          Always follow local guidance, especially for batteries and hazardous waste.
+        </p>
       </div>
-
-      <div class="category-grid">
-        <article class="category-card cat-green">
-          <span aria-hidden="true">🥬</span>
-          <h3>Organic</h3>
-          <p>Food scraps and leaves</p>
-        </article>
-
-        <article class="category-card cat-blue">
-          <span aria-hidden="true">🧴</span>
-          <h3>Plastic</h3>
-          <p>Bottles and containers</p>
-        </article>
-
-        <article class="category-card cat-orange">
-          <span aria-hidden="true">📦</span>
-          <h3>Paper</h3>
-          <p>Paper and cardboard</p>
-        </article>
-
-        <article class="category-card cat-purple">
-          <span aria-hidden="true">🫙</span>
-          <h3>Glass</h3>
-          <p>Jars and glass bottles</p>
-        </article>
-
-        <article class="category-card cat-pink">
-          <span aria-hidden="true">🔋</span>
-          <h3>E-waste</h3>
-          <p>Batteries and electronics</p>
-        </article>
-      </div>
-
-      <p class="category-note">
-        ♻️ Recycling rules vary by location. Check your local waste collection
-        guidance before disposing of an item.
-      </p>
     </section>
 
-    <!-- Analysis History -->
     <section class="history-section" id="history">
-      <div class="section-heading">
-        <div>
-          <span class="section-kicker">YOUR ECO JOURNEY</span>
-          <h2>Recent <span class="gradient-text">analyses.</span></h2>
-          <p>Revisit the waste items you have analyzed in this browser.</p>
+      <div class="container">
+        <div class="history-heading">
+          <div>
+            <span class="eyebrow">YOUR ACTIVITY</span>
+            <h2>Recent analyses</h2>
+            <p>Review your previous waste-sorting results on this device.</p>
+          </div>
+
+          <button type="button" id="clear-history" class="secondary-btn">
+            Clear History
+          </button>
         </div>
 
-        <button id="clear-history" class="clear-history-btn" type="button">
-          Clear history
-        </button>
+        <div id="history-list" class="history-list">
+          <div class="history-empty">
+            <span aria-hidden="true">📝</span>
+            <p>Your analyses will appear here after you use the AI analyzer.</p>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div id="history-list" class="history-list">
-        <div class="history-empty">
-          <span aria-hidden="true">🌱</span>
-          <p>Your analysis history will appear here.</p>
+    <section class="final-cta">
+      <div class="container final-cta-content">
+        <div>
+          <span class="eyebrow">ONE PLANET. ONE RESPONSIBILITY.</span>
+          <h2>Make every item count.</h2>
+          <p>Start with one item. Build a better habit.</p>
         </div>
+        <a class="primary-btn" href="#analyzer">Start Sorting <span>→</span></a>
       </div>
     </section>
   </main>
 
-  <!-- Footer -->
-  <footer>
-    <a href="#" class="brand footer-brand">
-      <span class="brand-icon" aria-hidden="true">♻</span>
-      <span>EcoSort<span class="brand-ai"> AI</span></span>
-    </a>
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <a class="logo" href="/" aria-label="EcoSort AI home">
+        <span class="logo-icon">🌿</span>
+        <span>EcoSort <strong>AI</strong></span>
+      </a>
 
-    <p>Built for a cleaner tomorrow. 🌍</p>
-
-    <span class="footer-credit">
-      SMARTER SORTING · BETTER LIVING
-    </span>
+      <p>AI-powered guidance for more responsible waste sorting.</p>
+      <span>© <span id="current-year">2026</span> EcoSort AI</span>
+    </div>
   </footer>
 </body>
 </html>
