@@ -1,4 +1,3 @@
-
 "use strict";
 
 require("dotenv").config();
@@ -9,36 +8,42 @@ const { fetch: undiciFetch, Agent } = require("undici");
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const OLLAMA_MODE = (process.env.OLLAMA_MODE || "local").toLowerCase();
 const IS_CLOUD = OLLAMA_MODE === "cloud";
-
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
-const OLLAMA_MODEL =
-  process.env.OLLAMA_MODEL || (IS_CLOUD ? "gemma4:31b" : "gemma4:e2b");
 
-const OLLAMA_URL = IS_CLOUD
-  ? "https://ollama.com"
-  : (process.env.OLLAMA_URL || "http://localhost:11434").replace(/\/+$/, "");
+const OLLAMA_MODEL =
+  process.env.OLLAMA_MODEL ||
+  (IS_CLOUD ? "gemma4:31b" : "gemma4:e2b");
+
+const OLLAMA_URL = (
+  IS_CLOUD
+    ? "https://ollama.com"
+    : process.env.OLLAMA_URL || "http://localhost:11434"
+).replace(/\/+$/, "");
 
 const REQUEST_TIMEOUT_MS = 120000;
 
 app.disable("x-powered-by");
+
 app.use(express.json({ limit: "20kb" }));
 app.use(express.urlencoded({ extended: false, limit: "20kb" }));
 
-// Serve the frontend from the public directory.
 app.use(express.static(path.join(__dirname, "public")));
 
-// Handle invalid JSON request bodies.
 app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+  if (
+    err instanceof SyntaxError &&
+    err.status === 400 &&
+    "body" in err
+  ) {
     return res.status(400).json({
       message: "Invalid JSON request body."
     });
   }
 
-  next(err);
+  return next(err);
 });
 
 function getAuthHeaders() {
@@ -53,22 +58,35 @@ function getAuthHeaders() {
   return headers;
 }
 
-async function ollamaRequest(endpoint, body, timeoutMs = REQUEST_TIMEOUT_MS) {
+async function ollamaRequest(
+  endpoint,
+  body,
+  timeoutMs = REQUEST_TIMEOUT_MS
+) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    timeoutMs
+  );
+
+  const dispatcher = new Agent({
+    connect: {
+      timeout: 15000
+    }
+  });
 
   try {
-    const response = await undiciFetch(`${OLLAMA_URL}${endpoint}`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(body),
-      signal: controller.signal,
-      dispatcher: new Agent({
-        connect: {
-          timeout: 15000
-        }
-      })
-    });
+    const response = await undiciFetch(
+      `${OLLAMA_URL}${endpoint}`,
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+        signal: controller.signal,
+        dispatcher
+      }
+    );
 
     const responseText = await response.text();
 
@@ -82,7 +100,8 @@ async function ollamaRequest(endpoint, body, timeoutMs = REQUEST_TIMEOUT_MS) {
 
     if (!response.ok) {
       const error = new Error(
-        data.error || `Ollama request failed (${response.status}).`
+        data.error ||
+        `Ollama request failed (${response.status}).`
       );
 
       error.status = response.status;
@@ -92,10 +111,11 @@ async function ollamaRequest(endpoint, body, timeoutMs = REQUEST_TIMEOUT_MS) {
     return data;
   } finally {
     clearTimeout(timeout);
+    await dispatcher.close().catch(() => {});
   }
 }
 
-// Basic service status.
+// Health check
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -105,7 +125,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Ollama connectivity status.
+// Ollama connection status
 app.get("/api/status", async (req, res) => {
   if (IS_CLOUD && !OLLAMA_API_KEY) {
     return res.status(503).json({
@@ -114,12 +134,29 @@ app.get("/api/status", async (req, res) => {
     });
   }
 
-  try {
-    const response = await undiciFetch(`${OLLAMA_URL}/api/tags`, {
-      method: "GET",
-      headers: getAuthHeaders(),
-      signal: AbortSignal.timeout(10000)
+  if (IS_CLOUD) {
+    return res.json({
+      status: "configured",
+      mode: OLLAMA_MODE,
+      model: OLLAMA_MODEL
     });
+  }
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    10000
+  );
+
+  try {
+    const response = await undiciFetch(
+      `${OLLAMA_URL}/api/tags`,
+      {
+        method: "GET",
+        signal: controller.signal
+      }
+    );
 
     if (!response.ok) {
       return res.status(503).json({
@@ -130,7 +167,7 @@ app.get("/api/status", async (req, res) => {
 
     const data = await response.json();
 
-    res.json({
+    return res.json({
       status: "connected",
       mode: OLLAMA_MODE,
       model: OLLAMA_MODEL,
@@ -139,21 +176,26 @@ app.get("/api/status", async (req, res) => {
         : []
     });
   } catch (error) {
-    res.status(503).json({
+    return res.status(503).json({
       status: "unavailable",
-      message: error.name === "TimeoutError" || error.name === "AbortError"
-        ? "Ollama status request timed out."
-        : "Cannot connect to the configured Ollama endpoint."
+      message:
+        error.name === "TimeoutError" ||
+        error.name === "AbortError"
+          ? "Ollama status request timed out."
+          : "Cannot connect to the configured Ollama endpoint."
     });
+  } finally {
+    clearTimeout(timeout);
   }
 });
 
-// Main AI waste analysis endpoint.
+// Analyze waste
 app.post("/api/analyze", async (req, res) => {
   try {
-    const item = typeof req.body?.item === "string"
-      ? req.body.item.trim()
-      : "";
+    const item =
+      typeof req.body?.item === "string"
+        ? req.body.item.trim()
+        : "";
 
     if (!item) {
       return res.status(400).json({
@@ -163,25 +205,23 @@ app.post("/api/analyze", async (req, res) => {
 
     if (item.length > 500) {
       return res.status(400).json({
-        message: "The waste description must be 500 characters or fewer."
+        message:
+          "The waste description must be 500 characters or fewer."
       });
     }
 
     if (IS_CLOUD && !OLLAMA_API_KEY) {
       return res.status(503).json({
-        message: "Cloud mode requires an OLLAMA_API_KEY environment variable."
+        message:
+          "Cloud mode requires an OLLAMA_API_KEY environment variable."
       });
     }
 
-    
-
-const systemPrompt = `
+    const systemPrompt = `
 You are EcoSort AI, an intelligent waste classification assistant.
-
 Analyze the user's waste item and provide useful, practical, easy-to-understand guidance.
 
 Use exactly these five headings:
-
 ITEM: A clear item name.
 CATEGORY: Choose one: Plastic, Organic, Paper, E-waste, Glass, General waste, or Other.
 RECOMMENDED ACTION: Explain what to do with the item in 2-3 useful sentences, around 25-40 words.
@@ -200,10 +240,10 @@ Writing rules:
 - Return only the five labelled fields.
 `.trim();
 
-
     const result = await ollamaRequest("/api/chat", {
       model: OLLAMA_MODEL,
       stream: false,
+
       messages: [
         {
           role: "system",
@@ -214,88 +254,124 @@ Writing rules:
           content: `Analyze this waste item: ${item}`
         }
       ],
+
       options: {
         temperature: 0.2,
         num_predict: 350
       },
+
       ...(IS_CLOUD ? {} : { keep_alive: "15m" })
     });
 
-    const content = result.message?.content;
+    const answer = result.message?.content;
 
-    if (typeof content !== "string" || !content.trim()) {
+    if (typeof answer !== "string" || !answer.trim()) {
       console.error("Unexpected Ollama response:", result);
 
       return res.status(502).json({
-        message: "The AI returned an empty response. Please try again."
+        message:
+          "The AI returned an empty response. Please try again."
       });
     }
 
-    const answer = content.trim();
+    const labels = [
+      "ITEM",
+      "CATEGORY",
+      "RECOMMENDED ACTION",
+      "WHY IT MATTERS",
+      "ECO TIP"
+    ];
 
     function extract(label) {
-      const labels = [
-        "ITEM",
-        "CATEGORY",
-        "RECOMMENDED ACTION",
-        "WHY IT MATTERS",
-        "ECO TIP"
-      ];
+      const index = labels.indexOf(label);
 
-      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const otherLabels = labels
-        .filter((entry) => entry !== label)
-        .map((entry) => entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-
-      const nextHeading = otherLabels.length
-        ? `(?=\\n\\s*(?:${otherLabels.join("|")})\\s*:|$)`
-        : "$";
-
-      const regex = new RegExp(
-        `(?:^|\\n)\\s*${escaped}\\s*:\\s*([\\s\\S]*?)${nextHeading}`,
+      const startRegex = new RegExp(
+        `(?:^|\\n)\\s*${label.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        )}\\s*:\\s*`,
         "i"
       );
 
-      const match = answer.match(regex);
-      return match ? match[1].trim() : "";
+      const match = startRegex.exec(answer);
+
+      if (!match) return "";
+
+      const start = match.index + match[0].length;
+
+      const nextHeadings = labels
+        .slice(index + 1)
+        .map((entry) =>
+          entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        )
+        .join("|");
+
+      if (!nextHeadings) {
+        return answer.slice(start).trim();
+      }
+
+      const nextRegex = new RegExp(
+        `\\n\\s*(?:${nextHeadings})\\s*:`,
+        "i"
+      );
+
+      const rest = answer.slice(start);
+      const next = nextRegex.exec(rest);
+
+      return (
+        next ? rest.slice(0, next.index) : rest
+      ).trim();
     }
 
     const category = extract("CATEGORY") || "Other";
 
-    res.json({
+    return res.json({
       success: true,
       itemName: extract("ITEM") || item,
       category,
+
       action:
         extract("RECOMMENDED ACTION") ||
         "Check local waste collection guidance before disposal.",
+
       reason:
         extract("WHY IT MATTERS") ||
         "Correct handling can help reduce waste and avoid inappropriate disposal.",
+
       tip:
         extract("ECO TIP") ||
         "Consider whether the item can be reused or safely recycled.",
-      response: answer,
+
+      response: answer.trim(),
       model: OLLAMA_MODEL
     });
   } catch (error) {
-    console.error("EcoSort AI analysis error:", error.message);
+    console.error(
+      "EcoSort AI analysis error:",
+      error.message
+    );
 
-    if (error.name === "AbortError" || error.name === "TimeoutError") {
+    if (
+      error.name === "AbortError" ||
+      error.name === "TimeoutError"
+    ) {
       return res.status(504).json({
-        message: "The AI request timed out. Please try again."
+        message:
+          "The AI request timed out. Please try again."
       });
     }
 
     if (error.status === 401 || error.status === 403) {
       return res.status(502).json({
-        message: "Ollama authentication failed. Check your API key."
+        message:
+          "Ollama authentication failed. Check your API key."
       });
     }
 
     if (error.status === 404) {
       return res.status(502).json({
-        message: "The Ollama endpoint or model was not found. Check your Ollama URL and model name."
+        message:
+          "The Ollama endpoint or model was not found. Check your Ollama URL and model name."
       });
     }
 
@@ -304,52 +380,63 @@ Writing rules:
       error.cause?.code === "ECONNREFUSED"
     ) {
       return res.status(503).json({
-        message: "Cannot connect to Ollama. Start Ollama and check the configured URL."
+        message:
+          "Cannot connect to Ollama. Start Ollama and check the configured URL."
       });
     }
 
-    res.status(502).json({
-      message: "AI analysis failed. Check the Ollama connection and try again."
+    return res.status(502).json({
+      message:
+        "AI analysis failed. Check the Ollama connection and try again."
     });
   }
 });
 
-// Return JSON for unknown API routes instead of an HTML 404 page.
+// Unknown API routes
 app.use("/api", (req, res) => {
   res.status(404).json({
-    message: `API endpoint not found: ${req.method} ${req.originalUrl}`
+    message:
+      `API endpoint not found: ${req.method} ${req.originalUrl}`
   });
 });
 
-// Frontend fallback.
-
+// Express 5 fallback route
 app.get("/{*splat}", (req, res, next) => {
-  if (req.path.startsWith("/api/")) return next();
+  if (req.path.startsWith("/api/")) {
+    return next();
+  }
 
-  res.sendFile(
+  return res.sendFile(
     path.join(__dirname, "public", "index.html"),
     (error) => {
       if (error && !res.headersSent) {
-        res.status(500).send("Could not load the EcoSort AI frontend.");
+        res.status(500).send(
+          "Could not load the EcoSort AI frontend."
+        );
       }
     }
   );
 });
 
-
-// General error handler.
+// Final error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err.message);
 
-  if (res.headersSent) return next(err);
+  if (res.headersSent) {
+    return next(err);
+  }
 
-  res.status(500).json({
+  return res.status(500).json({
     message: "An unexpected server error occurred."
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`EcoSort AI server running at http://localhost:${PORT}`);
+// Start server
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(
+    `EcoSort AI server listening on port ${PORT}`
+  );
+
   console.log(`Ollama mode: ${OLLAMA_MODE}`);
   console.log(`Ollama model: ${OLLAMA_MODEL}`);
 

@@ -1,4 +1,3 @@
-
 "use strict";
 
 const $ = (selector) => document.querySelector(selector);
@@ -61,7 +60,10 @@ const categoryTips = {
 // Read saved analyses from this browser.
 function readHistory() {
   try {
-    const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    const data = JSON.parse(
+      localStorage.getItem(HISTORY_KEY) || "[]"
+    );
+
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Could not read saved history:", error);
@@ -72,11 +74,20 @@ function readHistory() {
 // Save analysis history.
 function writeHistory(history) {
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(history)
+    );
+
     return true;
   } catch (error) {
     console.error("Could not save history:", error);
-    setStatus("Could not save history. Check your browser storage settings.", true);
+
+    setStatus(
+      "Could not save history. Check your browser storage settings.",
+      true
+    );
+
     return false;
   }
 }
@@ -137,12 +148,17 @@ function normalizeCategory(value) {
 // Extract a labelled field from the AI response.
 function extractSection(text, labels) {
   const lines = String(text || "").split(/\r?\n/);
-  const wanted = new Set(labels.map((label) => label.toLowerCase()));
+  const wanted = new Set(
+    labels.map((label) => label.toLowerCase())
+  );
+
   let collecting = false;
   const result = [];
 
   for (const line of lines) {
-    const match = line.match(/^\s*([A-Z][A-Z _/-]{1,})\s*:\s*(.*)$/i);
+    const match = line.match(
+      /^\s*([A-Z][A-Z _/-]{1,})\s*:\s*(.*)$/i
+    );
 
     if (match) {
       const heading = match[1].trim().toLowerCase();
@@ -166,9 +182,10 @@ function extractSection(text, labels) {
   return result.join(" ").trim();
 }
 
-// Convert the backend response to a consistent object.
+// Convert backend response to a consistent object.
 function parseAnalysis(data, itemDescription) {
-  const safeData = data && typeof data === "object" ? data : {};
+  const safeData =
+    data && typeof data === "object" ? data : {};
 
   const rawText = typeof data === "string"
     ? data
@@ -220,17 +237,29 @@ function parseAnalysis(data, itemDescription) {
     ]);
 
   return {
-    itemName: String(itemName || itemDescription).trim(),
-    category: normalizeCategory(categoryText || rawText),
+    itemName: String(
+      itemName || itemDescription
+    ).trim(),
+
+    category: normalizeCategory(
+      categoryText || rawText
+    ),
+
     action: String(
-      action || "Check local waste collection guidance before disposal."
+      action ||
+      "Check local waste collection guidance before disposal."
     ).trim(),
+
     reason: String(
-      reason || "Follow local guidance to make an informed disposal decision."
+      reason ||
+      "Follow local guidance to make an informed disposal decision."
     ).trim(),
+
     tip: String(
-      tip || "Consider whether the item can be reused, repaired, or safely recycled."
+      tip ||
+      "Consider whether the item can be reused, repaired, or safely recycled."
     ).trim(),
+
     rawText: rawText.trim()
   };
 }
@@ -254,11 +283,12 @@ function showAnalysis(analysis) {
 
   Object.entries(fields).forEach(([selector, value]) => {
     const element = $(selector);
+
     if (element) element.textContent = value;
   });
 }
 
-// Call the backend AI endpoint.
+// Call backend AI endpoint.
 async function analyzeWaste() {
   if (!input) return;
 
@@ -271,23 +301,39 @@ async function analyzeWaste() {
   }
 
   if (description.length > 500) {
-    setStatus("Please keep your description under 500 characters.", true);
+    setStatus(
+      "Please keep your description under 500 characters.",
+      true
+    );
+
     return;
   }
 
   if (analyzeBtn) analyzeBtn.disabled = true;
-  if (analyzeBtnText) analyzeBtnText.textContent = "Analyzing...";
-  if (analyzeBtnIcon) analyzeBtnIcon.textContent = "◌";
 
-  setStatus("Connecting to AI. This may take a few moments...");
+  if (analyzeBtnText) {
+    analyzeBtnText.textContent = "Analyzing...";
+  }
+
+  if (analyzeBtnIcon) {
+    analyzeBtnIcon.textContent = "◌";
+  }
+
+  setStatus(
+    "Connecting to AI. This may take a few moments..."
+  );
 
   try {
     const response = await fetch("/api/analyze", {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ item: description })
+
+      body: JSON.stringify({
+        item: description
+      })
     });
 
     let data;
@@ -295,16 +341,24 @@ async function analyzeWaste() {
     try {
       data = await response.json();
     } catch {
-      throw new Error("The server returned an invalid response.");
+      throw new Error(
+        "The server returned an invalid response."
+      );
     }
 
     if (!response.ok) {
       throw new Error(
-        data.message || data.error || "Analysis failed. Please try again."
+        data.message ||
+        data.error ||
+        "Analysis failed. Please try again."
       );
     }
 
-    currentAnalysis = parseAnalysis(data, description);
+    currentAnalysis = parseAnalysis(
+      data,
+      description
+    );
+
     showAnalysis(currentAnalysis);
 
     setStatus(
@@ -314,20 +368,31 @@ async function analyzeWaste() {
     console.error("Analysis error:", error);
 
     setStatus(
-      error.message || "Unable to analyze this item. Check the server and try again.",
+      error.message ||
+      "Unable to analyze this item. Check the server and try again.",
       true
     );
   } finally {
     if (analyzeBtn) analyzeBtn.disabled = false;
-    if (analyzeBtnText) analyzeBtnText.textContent = "Analyze with AI";
-    if (analyzeBtnIcon) analyzeBtnIcon.textContent = "✦";
+
+    if (analyzeBtnText) {
+      analyzeBtnText.textContent = "Analyze with AI";
+    }
+
+    if (analyzeBtnIcon) {
+      analyzeBtnIcon.textContent = "✦";
+    }
   }
 }
 
 // Save current analysis and refresh charts.
 function saveCurrentAnalysis() {
   if (!currentAnalysis) {
-    setStatus("Analyze an item before saving it.", true);
+    setStatus(
+      "Analyze an item before saving it.",
+      true
+    );
+
     return;
   }
 
@@ -335,24 +400,36 @@ function saveCurrentAnalysis() {
 
   history.unshift({
     ...currentAnalysis,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+
+    id: `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`,
+
     date: new Date().toISOString()
   });
 
-  if (!writeHistory(history.slice(0, MAX_HISTORY))) return;
+  if (!writeHistory(history.slice(0, MAX_HISTORY))) {
+    return;
+  }
 
   selectedCategory = null;
 
   renderHistory();
   renderAnalytics();
 
-  setStatus("Analysis saved! Your pie chart and weekly graph have been updated.");
+  setStatus(
+    "Analysis saved! Your pie chart and weekly graph have been updated."
+  );
 }
 
 // Copy the current analysis.
 async function copyCurrentAnalysis() {
   if (!currentAnalysis) {
-    setStatus("There is no analysis to copy yet.", true);
+    setStatus(
+      "There is no analysis to copy yet.",
+      true
+    );
+
     return;
   }
 
@@ -366,9 +443,11 @@ async function copyCurrentAnalysis() {
 
   try {
     await navigator.clipboard.writeText(text);
+
     setStatus("Analysis copied to clipboard.");
   } catch {
     const textarea = document.createElement("textarea");
+
     textarea.value = text;
     textarea.style.position = "fixed";
     textarea.style.opacity = "0";
@@ -377,6 +456,7 @@ async function copyCurrentAnalysis() {
     textarea.select();
 
     const copied = document.execCommand("copy");
+
     textarea.remove();
 
     setStatus(
@@ -399,26 +479,35 @@ function renderHistory() {
 
   if (!history.length) {
     const empty = document.createElement("div");
+
     empty.className = "history-empty";
+
     empty.innerHTML =
       '<span>◷</span><h3>No saved analyses yet</h3><p>Analyze an item and choose Save to history to get started.</p>';
 
     container.appendChild(empty);
+
     return;
   }
 
   history.forEach((item) => {
     const row = document.createElement("article");
+
     row.className = "history-item";
 
     const details = document.createElement("div");
+
     details.className = "history-item-details";
 
     const title = document.createElement("h3");
+
     title.textContent = item.itemName || "Waste item";
 
     const date = document.createElement("p");
-    const parsedDate = item.date ? new Date(item.date) : null;
+
+    const parsedDate = item.date
+      ? new Date(item.date)
+      : null;
 
     date.textContent =
       parsedDate && !Number.isNaN(parsedDate.getTime())
@@ -426,12 +515,15 @@ function renderHistory() {
         : "Date unavailable";
 
     const badge = document.createElement("span");
+
     badge.className = "history-category";
+
     badge.textContent = normalizeCategory(item.category);
 
     details.append(title, date, badge);
 
     const viewButton = document.createElement("button");
+
     viewButton.type = "button";
     viewButton.className = "button button-secondary";
     viewButton.textContent = "View";
@@ -449,31 +541,36 @@ function renderHistory() {
       showAnalysis(currentAnalysis);
 
       const analyzer = $("#analyzer");
+
       if (analyzer) {
-        analyzer.scrollIntoView({ behavior: "smooth" });
+        analyzer.scrollIntoView({
+          behavior: "smooth"
+        });
       }
 
       setStatus("Loaded a saved analysis.");
     });
 
     row.append(details, viewButton);
+
     container.appendChild(row);
   });
 }
 
-// Count actual saved categories.
+// Count saved categories.
 function countCategories(history) {
   const counts = {};
 
   history.forEach((item) => {
     const category = normalizeCategory(item.category);
+
     counts[category] = (counts[category] || 0) + 1;
   });
 
   return counts;
 }
 
-// Update statistic cards, charts, and eco tip.
+// Update statistics, charts, and eco tip.
 function renderAnalytics() {
   const history = readHistory();
   const counts = countCategories(history);
@@ -485,7 +582,8 @@ function renderAnalytics() {
   }
 
   if ($("#stat-categories")) {
-    $("#stat-categories").textContent = categories.length;
+    $("#stat-categories").textContent =
+      categories.length;
   }
 
   if ($("#pie-total")) {
@@ -512,7 +610,8 @@ function renderAnalytics() {
   }).length;
 
   if ($("#stat-recyclable")) {
-    $("#stat-recyclable").textContent = recyclableCount;
+    $("#stat-recyclable").textContent =
+      recyclableCount;
   }
 
   renderPieChart(counts, history);
@@ -544,7 +643,8 @@ function renderPieChart(counts, history) {
 
   const colors = hasData
     ? categories.map(
-        (category) => categoryColors[category] || categoryColors.Other
+        (category) =>
+          categoryColors[category] || categoryColors.Other
       )
     : ["rgba(158, 180, 168, 0.22)"];
 
@@ -554,6 +654,7 @@ function renderPieChart(counts, history) {
   }
 
   canvas.style.display = "block";
+
   wrapper.style.background = "transparent";
   wrapper.style.borderRadius = "";
   wrapper.style.width = "";
@@ -575,8 +676,10 @@ function renderPieChart(counts, history) {
   if (typeof Chart !== "undefined") {
     pieChart = new Chart(canvas, {
       type: "doughnut",
+
       data: {
         labels,
+
         datasets: [{
           data: values,
           backgroundColor: colors,
@@ -586,21 +689,28 @@ function renderPieChart(counts, history) {
           borderRadius: 5
         }]
       },
+
       options: {
         responsive: true,
         maintainAspectRatio: false,
         cutout: "72%",
+
         plugins: {
           legend: {
             display: false
           },
+
           tooltip: {
             enabled: hasData,
+
             callbacks: {
               label(context) {
                 const value = context.raw;
+
                 const percentage = history.length
-                  ? Math.round((value / history.length) * 100)
+                  ? Math.round(
+                      (value / history.length) * 100
+                    )
                   : 0;
 
                 return `${context.label}: ${value} (${percentage}%)`;
@@ -608,12 +718,18 @@ function renderPieChart(counts, history) {
             }
           }
         },
+
         onClick(_event, elements) {
           if (!hasData || !elements.length) return;
 
-          selectedCategory = categories[elements[0].index];
+          selectedCategory =
+            categories[elements[0].index];
 
-          renderCategoryInsight(selectedCategory, history);
+          renderCategoryInsight(
+            selectedCategory,
+            history
+          );
+
           renderPieLegend(counts, categories);
         }
       }
@@ -631,19 +747,25 @@ function renderPieChart(counts, history) {
     return;
   }
 
-  // CSS-based fallback when the Chart.js CDN is unavailable.
+  // CSS fallback if Chart.js is unavailable.
   canvas.style.display = "none";
 
-  const total = values.reduce((sum, value) => sum + value, 0) || 1;
+  const total =
+    values.reduce((sum, value) => sum + value, 0) || 1;
+
   let cursor = 0;
 
   const stops = values.map((value, index) => {
     const start = cursor;
+
     cursor += (value / total) * 100;
+
     return `${colors[index]} ${start}% ${cursor}%`;
   });
 
-  wrapper.style.background = `conic-gradient(${stops.join(", ")})`;
+  wrapper.style.background =
+    `conic-gradient(${stops.join(", ")})`;
+
   wrapper.style.borderRadius = "50%";
   wrapper.style.width = "min(280px, 100%)";
   wrapper.style.aspectRatio = "1 / 1";
@@ -673,12 +795,14 @@ function renderPieChart(counts, history) {
 // Render clickable category legend.
 function renderPieLegend(counts, categories) {
   const legend = $("#pie-legend");
+
   if (!legend) return;
 
   legend.innerHTML = "";
 
   categories.forEach((category) => {
     const button = document.createElement("button");
+
     button.type = "button";
     button.className = "legend-item";
 
@@ -687,15 +811,19 @@ function renderPieLegend(counts, categories) {
     }
 
     const dot = document.createElement("span");
+
     dot.className = "legend-dot";
+
     dot.style.backgroundColor =
       categoryColors[category] || categoryColors.Other;
 
     const label = document.createElement("span");
+
     label.className = "legend-name";
     label.textContent = category;
 
     const count = document.createElement("strong");
+
     count.textContent = counts[category];
 
     button.append(dot, label, count);
@@ -712,7 +840,10 @@ function renderPieLegend(counts, categories) {
         const index = categories.indexOf(category);
 
         pieChart.setActiveElements([
-          { datasetIndex: 0, index }
+          {
+            datasetIndex: 0,
+            index
+          }
         ]);
 
         pieChart.update();
@@ -723,13 +854,15 @@ function renderPieLegend(counts, categories) {
   });
 }
 
-// Display details for the selected category.
+// Show selected category details.
 function renderCategoryInsight(category, history) {
   const target = $("#category-insight");
+
   if (!target) return;
 
   const items = history.filter(
-    (item) => normalizeCategory(item.category) === category
+    (item) =>
+      normalizeCategory(item.category) === category
   );
 
   const names = items
@@ -745,12 +878,14 @@ function renderCategoryInsight(category, history) {
 // Weekly activity graph with CSS fallback.
 function renderBarChart(history) {
   const canvas = $("#activity-bar-chart");
+
   if (!canvas) {
     console.error("Activity chart canvas is missing.");
     return;
   }
 
   const wrapper = canvas.parentElement;
+
   if (!wrapper) return;
 
   const days = [];
@@ -764,23 +899,28 @@ function renderBarChart(history) {
     day.setDate(today.getDate() - offset);
 
     days.push(
-      day.toLocaleDateString(undefined, { weekday: "short" })
+      day.toLocaleDateString(undefined, {
+        weekday: "short"
+      })
     );
 
     const nextDay = new Date(day);
+
     nextDay.setDate(day.getDate() + 1);
 
-    values.push(history.filter((item) => {
-      if (!item.date) return false;
+    values.push(
+      history.filter((item) => {
+        if (!item.date) return false;
 
-      const date = new Date(item.date);
+        const date = new Date(item.date);
 
-      return (
-        !Number.isNaN(date.getTime()) &&
-        date >= day &&
-        date < nextDay
-      );
-    }).length);
+        return (
+          !Number.isNaN(date.getTime()) &&
+          date >= day &&
+          date < nextDay
+        );
+      }).length
+    );
   }
 
   if (barChart) {
@@ -790,14 +930,18 @@ function renderBarChart(history) {
 
   canvas.style.display = "block";
 
-  const oldFallback = wrapper.querySelector(".bar-fallback");
+  const oldFallback =
+    wrapper.querySelector(".bar-fallback");
+
   if (oldFallback) oldFallback.remove();
 
   if (typeof Chart !== "undefined") {
     barChart = new Chart(canvas, {
       type: "bar",
+
       data: {
         labels: days,
+
         datasets: [{
           label: "Saved analyses",
           data: values,
@@ -807,40 +951,51 @@ function renderBarChart(history) {
           maxBarThickness: 32
         }]
       },
+
       options: {
         responsive: true,
         maintainAspectRatio: false,
+
         plugins: {
           legend: {
             display: false
           },
+
           tooltip: {
             callbacks: {
-              label: (context) => ` ${context.raw} saved`
+              label: (context) =>
+                ` ${context.raw} saved`
             }
           }
         },
+
         scales: {
           x: {
             grid: {
               display: false
             },
+
             ticks: {
               color: "#9eb4a8"
             },
+
             border: {
               display: false
             }
           },
+
           y: {
             beginAtZero: true,
+
             ticks: {
               precision: 0,
               color: "#9eb4a8"
             },
+
             grid: {
               color: "rgba(158,180,168,0.12)"
             },
+
             border: {
               display: false
             }
@@ -856,7 +1011,9 @@ function renderBarChart(history) {
   canvas.style.display = "none";
 
   const fallback = document.createElement("div");
+
   fallback.className = "bar-fallback";
+
   fallback.style.cssText =
     "display:flex;align-items:stretch;justify-content:space-around;" +
     "gap:8px;height:100%;width:100%;padding:15px 0 5px;";
@@ -871,10 +1028,14 @@ function renderBarChart(history) {
       "align-items:center;justify-content:flex-end;gap:9px;height:100%;";
 
     const value = document.createElement("span");
+
     value.textContent = String(values[index]);
-    value.style.cssText = "color:#9eb4a8;font-size:12px;";
+
+    value.style.cssText =
+      "color:#9eb4a8;font-size:12px;";
 
     const track = document.createElement("div");
+
     track.style.cssText =
       "display:flex;align-items:flex-end;justify-content:center;" +
       "width:100%;flex:1;max-width:32px;background:rgba(158,180,168,.08);" +
@@ -883,7 +1044,10 @@ function renderBarChart(history) {
     const bar = document.createElement("div");
 
     const height = values[index]
-      ? Math.max(5, (values[index] / maxValue) * 100)
+      ? Math.max(
+          5,
+          (values[index] / maxValue) * 100
+        )
       : 0;
 
     bar.style.cssText =
@@ -893,10 +1057,14 @@ function renderBarChart(history) {
     track.appendChild(bar);
 
     const label = document.createElement("span");
+
     label.textContent = day;
-    label.style.cssText = "color:#9eb4a8;font-size:11px;";
+
+    label.style.cssText =
+      "color:#9eb4a8;font-size:11px;";
 
     column.append(value, track, label);
+
     fallback.appendChild(column);
   });
 
@@ -912,14 +1080,19 @@ function renderSmartTip(topCategory, total) {
 
   if (!total || topCategory === "—") {
     title.textContent = "Start with one small habit";
+
     tip.textContent =
       "Save a few analyses to discover a practical tip based on your most frequent waste category.";
+
     return;
   }
 
-  const recommendation = categoryTips[topCategory] || categoryTips.Other;
+  const recommendation =
+    categoryTips[topCategory] || categoryTips.Other;
 
-  title.textContent = `${topCategory}: ${recommendation.title}`;
+  title.textContent =
+    `${topCategory}: ${recommendation.title}`;
+
   tip.textContent = recommendation.tip;
 }
 
@@ -928,6 +1101,7 @@ function exportReport() {
   renderAnalytics();
 
   const previousTitle = document.title;
+
   document.title = "EcoSort-AI-Analytics-Report";
 
   window.print();
@@ -949,6 +1123,7 @@ function clearHistory() {
   );
 
   if (!confirmed) return;
+
   if (!writeHistory([])) return;
 
   selectedCategory = null;
@@ -966,13 +1141,17 @@ function setupEventListeners() {
       const counter = $("#character-count");
 
       if (counter) {
-        counter.textContent = `${input.value.length} / 500`;
+        counter.textContent =
+          `${input.value.length} / 500`;
       }
     });
   }
 
   if (analyzeBtn) {
-    analyzeBtn.addEventListener("click", analyzeWaste);
+    analyzeBtn.addEventListener(
+      "click",
+      analyzeWaste
+    );
   }
 
   $("#save-result-btn")?.addEventListener(
@@ -995,21 +1174,24 @@ function setupEventListeners() {
     exportReport
   );
 
-  document.querySelectorAll("[data-example]").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (!input) return;
+  document.querySelectorAll("[data-example]").forEach(
+    (button) => {
+      button.addEventListener("click", () => {
+        if (!input) return;
 
-      input.value = button.dataset.example || "";
+        input.value = button.dataset.example || "";
 
-      const counter = $("#character-count");
+        const counter = $("#character-count");
 
-      if (counter) {
-        counter.textContent = `${input.value.length} / 500`;
-      }
+        if (counter) {
+          counter.textContent =
+            `${input.value.length} / 500`;
+        }
 
-      input.focus();
-    });
-  });
+        input.focus();
+      });
+    }
+  );
 }
 
 // Initialize after HTML is loaded.
@@ -1019,7 +1201,14 @@ function initializeApp() {
   renderAnalytics();
 
   console.log("EcoSort AI frontend initialized.");
-  console.log("Chart.js available:", typeof Chart !== "undefined");
+
+  console.log(
+    "Chart.js available:",
+    typeof Chart !== "undefined"
+  );
 }
 
-document.addEventListener("DOMContentLoaded", initializeApp);
+document.addEventListener(
+  "DOMContentLoaded",
+  initializeApp
+);
