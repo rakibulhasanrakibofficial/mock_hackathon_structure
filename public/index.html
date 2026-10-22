@@ -30,18 +30,24 @@
         <div>
           <span class="eyebrow">🌍 SMARTER WASTE MANAGEMENT</span>
           <h1>Turn Waste Into <span>Worth.</span></h1>
-          <p class="muted">Identify waste, explore recycling options, and make greener choices with AI-powered guidance.</p>
+          <p class="muted">
+            Identify waste, explore recycling options, and make greener
+            choices with AI-powered guidance.
+          </p>
           <div class="hero-actions">
             <a class="primary-btn" href="#analyzer">Analyze Your Waste →</a>
             <a class="secondary-btn" href="#analytics">View Analytics</a>
           </div>
           <p class="small-note">✓ Practical guidance &nbsp; ✓ Safety reminders</p>
         </div>
+
         <div class="hero-card">
           <div class="hero-emoji">♻️</div>
           <span class="eyebrow">A GREENER TOMORROW</span>
           <h2>Small actions.<br>Big impact.</h2>
-          <p class="muted">Every item sorted thoughtfully is a step towards a cleaner planet.</p>
+          <p class="muted">
+            Every item sorted thoughtfully is a step towards a cleaner planet.
+          </p>
           <div class="progress"><span></span></div>
           <p class="progress-label">MAKE EVERY ITEM COUNT 🌱</p>
         </div>
@@ -59,16 +65,26 @@
         <div class="panel">
           <form id="waste-form">
             <label for="waste">Describe your waste item</label>
-            <textarea id="waste" maxlength="1000" rows="4" required
-              placeholder="e.g. An empty plastic water bottle..."></textarea>
+            <textarea
+              id="waste"
+              maxlength="1000"
+              rows="4"
+              required
+              placeholder="e.g. An empty plastic water bottle..."
+            ></textarea>
+
             <div class="counter" id="char-count">0/1000</div>
 
             <p class="form-label">QUICK EXAMPLES</p>
             <div class="chips">
-              <button type="button" class="example-chip" data-example="An empty plastic water bottle">🧴 Plastic bottle</button>
-              <button type="button" class="example-chip" data-example="Used cardboard packaging">📦 Cardboard</button>
-              <button type="button" class="example-chip" data-example="An old mobile phone battery">🔋 Battery</button>
-              <button type="button" class="example-chip" data-example="Leftover food scraps">🍎 Food waste</button>
+              <button type="button" class="example-chip"
+                data-example="An empty plastic water bottle">🧴 Plastic bottle</button>
+              <button type="button" class="example-chip"
+                data-example="Used cardboard packaging">📦 Cardboard</button>
+              <button type="button" class="example-chip"
+                data-example="An old mobile phone battery">🔋 Battery</button>
+              <button type="button" class="example-chip"
+                data-example="Leftover food scraps">🍎 Food waste</button>
             </div>
 
             <button type="submit" id="analyze-btn" class="primary-btn full-width">
@@ -87,7 +103,9 @@
           <div id="empty-state" class="empty-state">
             <div class="empty-icon">♻️</div>
             <h3>Your greener choice starts here</h3>
-            <p class="muted">Enter a waste item above to receive your personalized guide.</p>
+            <p class="muted">
+              Enter a waste item above to receive your personalized guide.
+            </p>
           </div>
 
           <section id="result-content" class="result-content" hidden>
@@ -98,16 +116,27 @@
                 <p class="muted small" id="response-time"></p>
               </div>
               <div class="result-actions">
-                <button type="button" id="copy-btn" class="secondary-btn">Copy Result</button>
-                <button type="button" id="export-pdf-btn" class="primary-btn">📄 Export PDF</button>
+                <button type="button" id="copy-btn" class="secondary-btn">
+                  Copy Result
+                </button>
+                <button type="button" id="export-pdf-btn" class="primary-btn">
+                  📄 Export PDF
+                </button>
               </div>
             </div>
+
             <div class="report-meta">
-              <span>Waste item</span><strong id="report-waste"></strong>
-              <span>Report date</span><strong id="report-date"></strong>
+              <span>Waste item</span>
+              <strong id="report-waste"></strong>
+              <span>Report date</span>
+              <strong id="report-date"></strong>
             </div>
+
             <div id="answer" class="answer"></div>
-            <p class="print-note">EcoSort AI provides general guidance. Follow local waste-disposal rules.</p>
+
+            <p class="print-note">
+              EcoSort AI provides general guidance. Follow local waste-disposal rules.
+            </p>
           </section>
         </div>
       </div>
@@ -120,6 +149,7 @@
           <h2>Waste comes in many forms</h2>
           <p class="muted">Different materials need different handling.</p>
         </div>
+
         <div class="categories-grid">
           <article class="category-card">
             <div class="category-icon">🧴</div>
@@ -127,26 +157,38 @@
             <p class="muted">Check the resin code and local recycling rules.</p>
             <span class="category-tip">Tip: Keep accepted containers appropriately clean.</span>
           </article>
+
           <article class="category-card">
             <div class="category-icon">📦</div>
             <h3>Paper &amp; Cardboard</h3>
-            <p class="muted">Keep recyclable paper dry and separate heavily contaminated packaging.</p>
+            <p class="muted">
+              Keep recyclable paper dry and separate heavily contaminated packaging.
+            </p>
             <span class="category-tip">Tip: Flatten boxes when practical.</span>
           </article>
+
           <article class="category-card">
             <div class="category-icon">🍃</div>
             <h3>Organic</h3>
-            <p class="muted">Food scraps may be compostable where suitable facilities exist.</p>
+            <p class="muted">
+              Food scraps may be compostable where suitable facilities exist.
+            </p>
             <span class="category-tip">Tip: Follow local composting guidance.</span>
           </article>
+
           <article class="category-card">
             <div class="category-icon">🔋</div>
             <h3>Electronic</h3>
-            <p class="muted">Batteries and electronics need appropriate collection and handling.</p>
+            <p class="muted">
+              Batteries and electronics need appropriate collection and handling.
+            </p>
             <span class="category-tip">Tip: Keep damaged batteries out of ordinary bins.</span>
           </article>
         </div>
-        <p class="disclaimer">Recycling options depend on your location and available facilities.</p>
+
+        <p class="disclaimer">
+          Recycling options depend on your location and available facilities.
+        </p>
       </div>
     </section>
 
@@ -155,7 +197,9 @@
         <div class="section-heading">
           <span class="eyebrow">YOUR WASTE DATA</span>
           <h2>Analytics Dashboard</h2>
-          <p class="muted">Insights generated from your saved analyses in this browser.</p>
+          <p class="muted">
+            Insights generated from your saved analyses in this browser.
+          </p>
         </div>
 
         <div class="stats-grid">
@@ -165,12 +209,14 @@
             <strong id="stat-total">0</strong>
             <span class="stat-caption">Saved analysis records</span>
           </article>
+
           <article class="stat-card">
             <span class="stat-icon">🏷️</span>
             <p class="muted">Categories Found</p>
             <strong id="stat-categories">0</strong>
             <span class="stat-caption">Distinct identified categories</span>
           </article>
+
           <article class="stat-card">
             <span class="stat-icon">📅</span>
             <p class="muted">Active Days</p>
@@ -188,9 +234,14 @@
               </div>
               <span class="chart-label">PIE CHART</span>
             </div>
+
             <div class="pie-layout">
-              <div id="pie-chart" class="pie-chart" role="img" aria-label="Waste category pie chart">
-                <div class="pie-center"><strong id="pie-total">0</strong><span>items</span></div>
+              <div id="pie-chart" class="pie-chart" role="img"
+                aria-label="Waste category pie chart">
+                <div class="pie-center">
+                  <strong id="pie-total">0</strong>
+                  <span>items</span>
+                </div>
               </div>
               <div id="pie-legend" class="pie-legend">
                 <p class="muted small">Analyze items to populate the chart.</p>
@@ -206,7 +257,9 @@
               </div>
               <span class="chart-label">BAR CHART</span>
             </div>
-            <div id="bar-chart" class="bar-chart" role="img" aria-label="Daily analysis activity chart">
+
+            <div id="bar-chart" class="bar-chart" role="img"
+              aria-label="Daily analysis activity chart">
               <p class="muted small">Your daily activity will appear here.</p>
             </div>
           </article>
@@ -214,7 +267,10 @@
 
         <div class="analytics-note">
           <strong>About these statistics</strong>
-          <p class="muted small">Charts use saved analysis records, not measured waste weight or confirmed recycling. Data is stored locally in this browser.</p>
+          <p class="muted small">
+            Charts use saved analysis records, not measured waste weight or
+            confirmed recycling. Data is stored locally in this browser.
+          </p>
         </div>
       </div>
     </section>
@@ -227,10 +283,16 @@
             <h2>Saved Analyses</h2>
             <p class="muted">Reopen a previous result or export it again.</p>
           </div>
-          <button type="button" id="clear-history" class="secondary-btn">Clear History</button>
+          <button type="button" id="clear-history" class="secondary-btn">
+            Clear History
+          </button>
         </div>
+
         <div id="history-list" class="history-grid">
-          <div class="history-empty">📝<p>Your analyses will appear here.</p></div>
+          <div class="history-empty">
+            📝
+            <p>Your analyses will appear here.</p>
+          </div>
         </div>
       </div>
     </section>

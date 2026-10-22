@@ -3,592 +3,1023 @@
 
 const $ = (selector) => document.querySelector(selector);
 
-const form = $("#waste-form");
-const wasteInput = $("#waste");
-const charCount = $("#char-count");
+const input = $("#waste-input");
 const analyzeBtn = $("#analyze-btn");
-const buttonText = $("#button-text");
+const analyzeBtnText = $("#analyze-btn-text");
+const analyzeBtnIcon = $("#analyze-btn-icon");
+const statusMessage = $("#analyzer-status");
 
-const emptyState = $("#empty-state");
-const loadingState = $("#loading-state");
-const resultContent = $("#result-content");
-const answerElement = $("#answer");
-const errorMessage = $("#error-message");
-
-const copyBtn = $("#copy-btn");
-const exportPdfBtn = $("#export-pdf-btn");
-const responseTime = $("#response-time");
-const reportWaste = $("#report-waste");
-const reportDate = $("#report-date");
-
-const clearHistoryBtn = $("#clear-history");
-const historyList = $("#history-list");
-
-const HISTORY_KEY = "ecosort-ai-history";
+const HISTORY_KEY = "ecosort_history";
 const MAX_HISTORY = 10;
 
-const CATEGORY_COLORS = {
-  Plastic: "#39e58c",
-  Paper: "#62b8ff",
-  Organic: "#e9c46a",
-  Electronic: "#c5a3ff",
-  Glass: "#ff9c78",
-  Other: "#718b80"
+let currentAnalysis = null;
+let pieChart = null;
+let barChart = null;
+let selectedCategory = null;
+
+const categoryColors = {
+  Plastic: "#55d6a0",
+  Organic: "#b8e986",
+  Paper: "#70b8ff",
+  "E-waste": "#c39bff",
+  Glass: "#65e1e7",
+  "General waste": "#ffb86b",
+  Other: "#a0a9b3"
 };
 
-let latestAnswer = "";
-let currentReportDate = new Date().toISOString();
-let isAnalyzing = false;
+const categoryTips = {
+  Plastic: {
+    title: "Make plastic sorting a habit",
+    tip: "Empty containers and check local recycling rules. Reuse suitable containers when practical."
+  },
+  Organic: {
+    title: "Give organic waste another purpose",
+    tip: "Separate suitable food scraps and explore composting if a safe, appropriate option is available."
+  },
+  Paper: {
+    title: "Keep recyclable paper clean",
+    tip: "Keep accepted paper dry and free from food contamination. Check whether coated or greasy paper is accepted locally."
+  },
+  "E-waste": {
+    title: "Handle electronics responsibly",
+    tip: "Keep batteries and electronics separate from ordinary waste and look for an authorized collection point."
+  },
+  Glass: {
+    title: "Sort glass carefully",
+    tip: "Check local glass collection rules and handle broken pieces carefully."
+  },
+  "General waste": {
+    title: "Check before throwing away",
+    tip: "Look for reuse, repair, donation, or specialist collection options before disposing of an item."
+  },
+  Other: {
+    title: "Learn the material first",
+    tip: "Check the item's material and local disposal guidance before deciding how to handle it."
+  }
+};
 
-function showError(message) {
-  errorMessage.textContent = message;
-  errorMessage.hidden = false;
-}
-
-function hideError() {
-  errorMessage.textContent = "";
-  errorMessage.hidden = true;
-}
-
-function updateCharCount() {
-  charCount.textContent = `${wasteInput.value.length}/1000`;
-}
-
-function setLoading(loading) {
-  isAnalyzing = loading;
-  analyzeBtn.disabled = loading;
-  buttonText.textContent = loading ? "Analyzing..." : "Analyze with AI →";
-  loadingState.hidden = !loading;
-
-  if (loading) {
-    emptyState.hidden = true;
-    resultContent.hidden = true;
+// Read saved analyses from this browser.
+function readHistory() {
+  try {
+    const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Could not read saved history:", error);
+    return [];
   }
 }
 
-function formatDate(value) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString();
-}
-
-function localDayKey(value) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "";
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-/* Determine the category from the AI response and item description. */
-function getCategory(item) {
-  const answer = String(item.answer || "");
-  const categorySection = answer.match(
-    /(?:^|\n)\s*(?:#{1,4}\s*)?CATEGORY\s*:?\s*\n?([\s\S]*?)(?=\n\s*(?:#{1,4}\s*)?(?:DISPOSAL|RECYCLING|SAFETY|REUSE IDEA)\b|$)/i
-  );
-
-  const categoryText = categorySection
-    ? categorySection[1].slice(0, 250)
-    : "";
-
-  const text = `${categoryText} ${item.waste || ""}`.toLowerCase();
-
-  if (/electronic|e-waste|battery|batteries|lithium|circuit board|mobile phone|charger/.test(text)) {
-    return "Electronic";
+// Save analysis history.
+function writeHistory(history) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    return true;
+  } catch (error) {
+    console.error("Could not save history:", error);
+    setStatus("Could not save history. Check your browser storage settings.", true);
+    return false;
   }
+}
 
-  if (/organic|food waste|food scraps|compost|fruit peel|vegetable peel/.test(text)) {
+function setStatus(message, isError = false) {
+  if (!statusMessage) return;
+
+  statusMessage.textContent = message;
+  statusMessage.classList.toggle("error", isError);
+}
+
+// Standardize AI category names.
+function normalizeCategory(value) {
+  const category = String(value || "").trim().toLowerCase();
+
+  if (category.includes("plastic")) return "Plastic";
+
+  if (
+    category.includes("organic") ||
+    category.includes("biodegradable") ||
+    category.includes("food") ||
+    category.includes("compost")
+  ) {
     return "Organic";
   }
 
-  if (/cardboard|paper packaging|newspaper|paper waste|paper &/.test(text)) {
+  if (
+    category.includes("paper") ||
+    category.includes("cardboard")
+  ) {
     return "Paper";
   }
 
-  if (/plastic|pet\b|hdpe|polypropylene|polyethylene|water bottle/.test(text)) {
-    return "Plastic";
+  if (
+    category.includes("e-waste") ||
+    category.includes("e waste") ||
+    category.includes("electronic") ||
+    category.includes("battery") ||
+    category.includes("hazardous")
+  ) {
+    return "E-waste";
   }
 
-  if (/glass|glass bottle|glass jar/.test(text)) {
-    return "Glass";
+  if (category.includes("glass")) return "Glass";
+
+  if (
+    category.includes("general") ||
+    category.includes("residual") ||
+    category.includes("landfill") ||
+    category.includes("non-recyclable")
+  ) {
+    return "General waste";
   }
 
   return "Other";
 }
 
-/* Category examples update the analyzer input. */
-wasteInput.addEventListener("input", updateCharCount);
-updateCharCount();
+// Extract a labelled field from the AI response.
+function extractSection(text, labels) {
+  const lines = String(text || "").split(/\r?\n/);
+  const wanted = new Set(labels.map((label) => label.toLowerCase()));
+  let collecting = false;
+  const result = [];
 
-document.querySelectorAll("[data-example]").forEach((button) => {
-  button.addEventListener("click", () => {
-    wasteInput.value = button.dataset.example || "";
-    updateCharCount();
-    hideError();
+  for (const line of lines) {
+    const match = line.match(/^\s*([A-Z][A-Z _/-]{1,})\s*:\s*(.*)$/i);
 
-    resultContent.hidden = true;
-    emptyState.hidden = false;
+    if (match) {
+      const heading = match[1].trim().toLowerCase();
 
-    $("#analyzer").scrollIntoView({
-      behavior: "smooth",
-      block: "start"
+      if (wanted.has(heading)) {
+        collecting = true;
+
+        if (match[2].trim()) {
+          result.push(match[2].trim());
+        }
+
+        continue;
+      }
+
+      if (collecting) break;
+    } else if (collecting) {
+      result.push(line.trim());
+    }
+  }
+
+  return result.join(" ").trim();
+}
+
+// Convert the backend response to a consistent object.
+function parseAnalysis(data, itemDescription) {
+  const safeData = data && typeof data === "object" ? data : {};
+
+  const rawText = typeof data === "string"
+    ? data
+    : String(
+        safeData.response ||
+        safeData.message?.content ||
+        safeData.result ||
+        ""
+      );
+
+  const categoryText =
+    safeData.category ||
+    extractSection(rawText, [
+      "CATEGORY",
+      "WASTE CATEGORY",
+      "CLASSIFICATION"
+    ]);
+
+  const itemName =
+    safeData.itemName ||
+    safeData.item ||
+    extractSection(rawText, ["ITEM"]) ||
+    itemDescription;
+
+  const action =
+    safeData.action ||
+    extractSection(rawText, [
+      "RECOMMENDED ACTION",
+      "DISPOSAL",
+      "DISPOSAL GUIDANCE",
+      "RECOMMENDATION"
+    ]);
+
+  const reason =
+    safeData.reason ||
+    extractSection(rawText, [
+      "WHY IT MATTERS",
+      "REASON",
+      "EXPLANATION"
+    ]);
+
+  const tip =
+    safeData.tip ||
+    extractSection(rawText, [
+      "ECO TIP",
+      "ECO-FRIENDLY TIP",
+      "TIP",
+      "SAFETY"
+    ]);
+
+  return {
+    itemName: String(itemName || itemDescription).trim(),
+    category: normalizeCategory(categoryText || rawText),
+    action: String(
+      action || "Check local waste collection guidance before disposal."
+    ).trim(),
+    reason: String(
+      reason || "Follow local guidance to make an informed disposal decision."
+    ).trim(),
+    tip: String(
+      tip || "Consider whether the item can be reused, repaired, or safely recycled."
+    ).trim(),
+    rawText: rawText.trim()
+  };
+}
+
+// Display AI analysis.
+function showAnalysis(analysis) {
+  const placeholder = $("#result-placeholder");
+  const result = $("#analysis-result");
+
+  if (placeholder) placeholder.hidden = true;
+  if (result) result.hidden = false;
+
+  const fields = {
+    "#result-item-name": analysis.itemName,
+    "#result-category": analysis.category,
+    "#result-category-badge": analysis.category,
+    "#result-action": analysis.action,
+    "#result-reason": analysis.reason,
+    "#result-tip": analysis.tip
+  };
+
+  Object.entries(fields).forEach(([selector, value]) => {
+    const element = $(selector);
+    if (element) element.textContent = value;
+  });
+}
+
+// Call the backend AI endpoint.
+async function analyzeWaste() {
+  if (!input) return;
+
+  const description = input.value.trim();
+
+  if (!description) {
+    setStatus("Please describe a waste item first.", true);
+    input.focus();
+    return;
+  }
+
+  if (description.length > 500) {
+    setStatus("Please keep your description under 500 characters.", true);
+    return;
+  }
+
+  if (analyzeBtn) analyzeBtn.disabled = true;
+  if (analyzeBtnText) analyzeBtnText.textContent = "Analyzing...";
+  if (analyzeBtnIcon) analyzeBtnIcon.textContent = "◌";
+
+  setStatus("Connecting to AI. This may take a few moments...");
+
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ item: description })
     });
 
-    wasteInput.focus({ preventScroll: true });
-  });
-});
+    let data;
 
-/* Render the AI answer as text, not executable HTML. */
-function displayAnswer(answer) {
-  latestAnswer = answer;
-  answerElement.replaceChildren();
-
-  const headings = [
-    "CATEGORY",
-    "DISPOSAL",
-    "RECYCLING",
-    "SAFETY",
-    "REUSE IDEA"
-  ];
-
-  let currentBody = null;
-
-  answer.split(/\r?\n/).forEach((line) => {
-    const text = line.trim();
-
-    if (!text) return;
-
-    const normalized = text
-      .replace(/^#{1,4}\s*/, "")
-      .replace(/\*{1,2}/g, "")
-      .replace(/:$/, "")
-      .trim()
-      .toUpperCase();
-
-    if (headings.includes(normalized)) {
-      const card = document.createElement("section");
-      card.className = "answer-card";
-
-      const heading = document.createElement("h4");
-      heading.textContent = normalized;
-
-      const paragraph = document.createElement("p");
-
-      card.append(heading, paragraph);
-      answerElement.appendChild(card);
-      currentBody = paragraph;
-      return;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("The server returned an invalid response.");
     }
 
-    if (!currentBody) {
-      const card = document.createElement("section");
-      card.className = "answer-card";
-      currentBody = document.createElement("p");
-      card.appendChild(currentBody);
-      answerElement.appendChild(card);
+    if (!response.ok) {
+      throw new Error(
+        data.message || data.error || "Analysis failed. Please try again."
+      );
     }
 
-    currentBody.textContent +=
-      (currentBody.textContent ? "\n" : "") + text;
-  });
+    currentAnalysis = parseAnalysis(data, description);
+    showAnalysis(currentAnalysis);
 
-  if (!answerElement.children.length) {
-    answerElement.textContent = answer;
-  }
-}
-
-/* Read and save browser-local history. */
-function getHistory() {
-  try {
-    const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.warn("History read failed:", error);
-    return [];
-  }
-}
-
-function saveHistory(item) {
-  try {
-    const history = getHistory();
-    history.unshift(item);
-
-    localStorage.setItem(
-      HISTORY_KEY,
-      JSON.stringify(history.slice(0, MAX_HISTORY))
+    setStatus(
+      "Analysis complete! Review the guidance, then save it to update your charts."
     );
   } catch (error) {
-    console.warn("History could not be saved:", error);
-    showError("Analysis succeeded, but browser history storage is unavailable.");
+    console.error("Analysis error:", error);
+
+    setStatus(
+      error.message || "Unable to analyze this item. Check the server and try again.",
+      true
+    );
+  } finally {
+    if (analyzeBtn) analyzeBtn.disabled = false;
+    if (analyzeBtnText) analyzeBtnText.textContent = "Analyze with AI";
+    if (analyzeBtnIcon) analyzeBtnIcon.textContent = "✦";
   }
+}
+
+// Save current analysis and refresh charts.
+function saveCurrentAnalysis() {
+  if (!currentAnalysis) {
+    setStatus("Analyze an item before saving it.", true);
+    return;
+  }
+
+  const history = readHistory();
+
+  history.unshift({
+    ...currentAnalysis,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    date: new Date().toISOString()
+  });
+
+  if (!writeHistory(history.slice(0, MAX_HISTORY))) return;
+
+  selectedCategory = null;
 
   renderHistory();
   renderAnalytics();
+
+  setStatus("Analysis saved! Your pie chart and weekly graph have been updated.");
 }
 
-/* Load a saved report into the analyzer. */
-function loadReport(item) {
-  wasteInput.value = item.waste || "";
-  updateCharCount();
+// Copy the current analysis.
+async function copyCurrentAnalysis() {
+  if (!currentAnalysis) {
+    setStatus("There is no analysis to copy yet.", true);
+    return;
+  }
 
-  currentReportDate = item.date || new Date().toISOString();
-  displayAnswer(item.answer || "");
+  const text = [
+    `Item: ${currentAnalysis.itemName}`,
+    `Category: ${currentAnalysis.category}`,
+    `Recommended action: ${currentAnalysis.action}`,
+    `Why it matters: ${currentAnalysis.reason}`,
+    `Eco tip: ${currentAnalysis.tip}`
+  ].join("\n\n");
 
-  reportWaste.textContent = item.waste || "Unknown item";
-  reportDate.textContent = formatDate(currentReportDate);
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("Analysis copied to clipboard.");
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
 
-  responseTime.textContent =
-    typeof item.responseTimeMs === "number"
-      ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
-      : "";
+    document.body.appendChild(textarea);
+    textarea.select();
 
-  hideError();
-  loadingState.hidden = true;
-  emptyState.hidden = true;
-  resultContent.hidden = false;
+    const copied = document.execCommand("copy");
+    textarea.remove();
 
-  $("#analyzer").scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
+    setStatus(
+      copied
+        ? "Analysis copied to clipboard."
+        : "Copy failed. Please copy the text manually.",
+      !copied
+    );
+  }
 }
 
-/* History cards */
+// Display saved analyses.
 function renderHistory() {
-  historyList.replaceChildren();
+  const history = readHistory();
+  const container = $("#history-list");
 
-  const history = getHistory();
+  if (!container) return;
+
+  container.innerHTML = "";
 
   if (!history.length) {
     const empty = document.createElement("div");
     empty.className = "history-empty";
-    empty.append("📝");
+    empty.innerHTML =
+      '<span>◷</span><h3>No saved analyses yet</h3><p>Analyze an item and choose Save to history to get started.</p>';
 
-    const message = document.createElement("p");
-    message.textContent = "Your analyses will appear here.";
-    empty.appendChild(message);
-    historyList.appendChild(empty);
+    container.appendChild(empty);
     return;
   }
 
   history.forEach((item) => {
-    const card = document.createElement("article");
-    card.className = "history-card";
+    const row = document.createElement("article");
+    row.className = "history-item";
+
+    const details = document.createElement("div");
+    details.className = "history-item-details";
 
     const title = document.createElement("h3");
-    title.textContent = item.waste || "Waste analysis";
-
-    const preview = document.createElement("p");
-    const answer = item.answer || "";
-
-    preview.textContent =
-      answer.slice(0, 180) + (answer.length > 180 ? "…" : "");
+    title.textContent = item.itemName || "Waste item";
 
     const date = document.createElement("p");
-    date.className = "history-date";
-    date.textContent = formatDate(item.date);
+    const parsedDate = item.date ? new Date(item.date) : null;
 
-    const actions = document.createElement("div");
-    actions.className = "history-actions";
+    date.textContent =
+      parsedDate && !Number.isNaN(parsedDate.getTime())
+        ? parsedDate.toLocaleString()
+        : "Date unavailable";
+
+    const badge = document.createElement("span");
+    badge.className = "history-category";
+    badge.textContent = normalizeCategory(item.category);
+
+    details.append(title, date, badge);
 
     const viewButton = document.createElement("button");
     viewButton.type = "button";
-    viewButton.textContent = "View report";
-    viewButton.addEventListener("click", () => loadReport(item));
+    viewButton.className = "button button-secondary";
+    viewButton.textContent = "View";
 
-    const pdfButton = document.createElement("button");
-    pdfButton.type = "button";
-    pdfButton.textContent = "Export PDF";
-    pdfButton.addEventListener("click", () => {
-      loadReport(item);
-      exportPDF();
+    viewButton.addEventListener("click", () => {
+      currentAnalysis = {
+        itemName: item.itemName || "Waste item",
+        category: normalizeCategory(item.category),
+        action: item.action || "",
+        reason: item.reason || "",
+        tip: item.tip || "",
+        rawText: item.rawText || ""
+      };
+
+      showAnalysis(currentAnalysis);
+
+      const analyzer = $("#analyzer");
+      if (analyzer) {
+        analyzer.scrollIntoView({ behavior: "smooth" });
+      }
+
+      setStatus("Loaded a saved analysis.");
     });
 
-    actions.append(viewButton, pdfButton);
-    card.append(title, preview, date, actions);
-    historyList.appendChild(card);
+    row.append(details, viewButton);
+    container.appendChild(row);
   });
 }
 
-clearHistoryBtn.addEventListener("click", () => {
-  if (!getHistory().length) return;
-
-  if (!window.confirm("Clear all saved analyses from this browser?")) {
-    return;
-  }
-
-  try {
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistory();
-    renderAnalytics();
-  } catch (error) {
-    showError("Could not clear saved history.");
-  }
-});
-
-/* =========================================
-   ANALYTICS DASHBOARD
-   ========================================= */
-
-function renderAnalytics() {
-  const history = getHistory();
-
-  $("#stat-total").textContent = history.length;
-
-  const categoryCounts = {};
-  const dailyCounts = {};
+// Count actual saved categories.
+function countCategories(history) {
+  const counts = {};
 
   history.forEach((item) => {
-    const category = getCategory(item);
-    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-
-    const day = localDayKey(item.date);
-
-    if (day) {
-      dailyCounts[day] = (dailyCounts[day] || 0) + 1;
-    }
+    const category = normalizeCategory(item.category);
+    counts[category] = (counts[category] || 0) + 1;
   });
 
-  $("#stat-categories").textContent = Object.keys(categoryCounts).length;
-  $("#stat-days").textContent = Object.keys(dailyCounts).length;
-
-  renderPieChart(categoryCounts, history.length);
-  renderBarChart(dailyCounts);
+  return counts;
 }
 
-/* Pie chart: each slice is proportional to saved analysis count. */
-function renderPieChart(counts, total) {
-  const pie = $("#pie-chart");
+// Update statistic cards, charts, and eco tip.
+function renderAnalytics() {
+  const history = readHistory();
+  const counts = countCategories(history);
+  const categories = Object.keys(counts);
+  const total = history.length;
+
+  if ($("#stat-total")) {
+    $("#stat-total").textContent = total;
+  }
+
+  if ($("#stat-categories")) {
+    $("#stat-categories").textContent = categories.length;
+  }
+
+  if ($("#pie-total")) {
+    $("#pie-total").textContent = total;
+  }
+
+  const sortedCategories = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1]);
+
+  const topCategory = sortedCategories.length
+    ? sortedCategories[0][0]
+    : "—";
+
+  if ($("#stat-top-category")) {
+    $("#stat-top-category").textContent = topCategory;
+  }
+
+  const recyclableCount = history.filter((item) => {
+    const text =
+      `${item.category || ""} ${item.action || ""} ${item.reason || ""}`
+        .toLowerCase();
+
+    return /\brecyclable\b|\bcan be recycled\b|\brecycling accepted\b/.test(text);
+  }).length;
+
+  if ($("#stat-recyclable")) {
+    $("#stat-recyclable").textContent = recyclableCount;
+  }
+
+  renderPieChart(counts, history);
+  renderBarChart(history);
+  renderSmartTip(topCategory, total);
+}
+
+// Interactive pie chart with CSS fallback.
+function renderPieChart(counts, history) {
+  const canvas = $("#category-pie-chart");
   const legend = $("#pie-legend");
+  const wrapper = canvas?.parentElement;
 
-  $("#pie-total").textContent = total;
-  legend.replaceChildren();
-
-  if (!total) {
-    pie.style.background = "conic-gradient(#244b3b 0% 100%)";
-
-    const message = document.createElement("p");
-    message.className = "muted small";
-    message.textContent = "Analyze an item to populate the chart.";
-    legend.appendChild(message);
+  if (!canvas || !legend || !wrapper) {
+    console.error("Pie chart HTML elements are missing.");
     return;
   }
 
-  const entries = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1]);
+  const categories = Object.keys(counts);
+  const hasData = history.length > 0;
 
-  let currentPercent = 0;
+  const labels = hasData
+    ? categories
+    : ["No saved analyses"];
 
-  const slices = entries.map(([category, count]) => {
-    const start = currentPercent;
-    currentPercent += (count / total) * 100;
+  const values = hasData
+    ? categories.map((category) => counts[category])
+    : [1];
 
-    return `${CATEGORY_COLORS[category] || CATEGORY_COLORS.Other} ${start}% ${currentPercent}%`;
+  const colors = hasData
+    ? categories.map(
+        (category) => categoryColors[category] || categoryColors.Other
+      )
+    : ["rgba(158, 180, 168, 0.22)"];
+
+  if (pieChart) {
+    pieChart.destroy();
+    pieChart = null;
+  }
+
+  canvas.style.display = "block";
+  wrapper.style.background = "transparent";
+  wrapper.style.borderRadius = "";
+  wrapper.style.width = "";
+  wrapper.style.aspectRatio = "";
+  wrapper.style.height = "";
+  wrapper.style.padding = "";
+  wrapper.style.display = "";
+  wrapper.style.placeItems = "";
+
+  const center = wrapper.querySelector(".pie-center");
+
+  if (center) {
+    center.style.position = "";
+    center.style.inset = "";
+    center.style.borderRadius = "";
+    center.style.background = "";
+  }
+
+  if (typeof Chart !== "undefined") {
+    pieChart = new Chart(canvas, {
+      type: "doughnut",
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors,
+          borderColor: "#10271e",
+          borderWidth: 4,
+          hoverOffset: hasData ? 10 : 0,
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "72%",
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            enabled: hasData,
+            callbacks: {
+              label(context) {
+                const value = context.raw;
+                const percentage = history.length
+                  ? Math.round((value / history.length) * 100)
+                  : 0;
+
+                return `${context.label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        },
+        onClick(_event, elements) {
+          if (!hasData || !elements.length) return;
+
+          selectedCategory = categories[elements[0].index];
+
+          renderCategoryInsight(selectedCategory, history);
+          renderPieLegend(counts, categories);
+        }
+      }
+    });
+
+    legend.textContent = "";
+
+    if (hasData) {
+      renderPieLegend(counts, categories);
+    } else {
+      legend.textContent =
+        "Save an analysis to populate the chart with your real categories.";
+    }
+
+    return;
+  }
+
+  // CSS-based fallback when the Chart.js CDN is unavailable.
+  canvas.style.display = "none";
+
+  const total = values.reduce((sum, value) => sum + value, 0) || 1;
+  let cursor = 0;
+
+  const stops = values.map((value, index) => {
+    const start = cursor;
+    cursor += (value / total) * 100;
+    return `${colors[index]} ${start}% ${cursor}%`;
   });
 
-  pie.style.background = `conic-gradient(${slices.join(", ")})`;
+  wrapper.style.background = `conic-gradient(${stops.join(", ")})`;
+  wrapper.style.borderRadius = "50%";
+  wrapper.style.width = "min(280px, 100%)";
+  wrapper.style.aspectRatio = "1 / 1";
+  wrapper.style.height = "auto";
+  wrapper.style.margin = "12px auto 24px";
+  wrapper.style.padding = "0";
+  wrapper.style.display = "grid";
+  wrapper.style.placeItems = "center";
 
-  entries.forEach(([category, count]) => {
-    const row = document.createElement("div");
-    row.className = "legend-item";
+  if (center) {
+    center.style.position = "absolute";
+    center.style.inset = "12%";
+    center.style.borderRadius = "50%";
+    center.style.background = "#10271e";
+  }
+
+  legend.textContent = "";
+
+  if (hasData) {
+    renderPieLegend(counts, categories);
+  } else {
+    legend.textContent =
+      "Save an analysis to populate the chart with your real categories.";
+  }
+}
+
+// Render clickable category legend.
+function renderPieLegend(counts, categories) {
+  const legend = $("#pie-legend");
+  if (!legend) return;
+
+  legend.innerHTML = "";
+
+  categories.forEach((category) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "legend-item";
+
+    if (selectedCategory === category) {
+      button.classList.add("selected");
+    }
 
     const dot = document.createElement("span");
     dot.className = "legend-dot";
-    dot.style.background = CATEGORY_COLORS[category] || CATEGORY_COLORS.Other;
-
-    const name = document.createElement("span");
-    name.className = "legend-name";
-    name.textContent = category;
-
-    const value = document.createElement("strong");
-    value.className = "legend-value";
-    value.textContent = `${count} (${Math.round(count / total * 100)}%)`;
-
-    row.append(dot, name, value);
-    legend.appendChild(row);
-  });
-
-  pie.setAttribute(
-    "aria-label",
-    entries.map(([category, count]) => `${category}: ${count}`).join(", ")
-  );
-}
-
-/* Bar chart: counts for today and the preceding six calendar days. */
-function renderBarChart(dailyCounts) {
-  const chart = $("#bar-chart");
-  chart.replaceChildren();
-
-  const today = new Date();
-  const days = [];
-
-  for (let offset = 6; offset >= 0; offset--) {
-    const date = new Date(today);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(today.getDate() - offset);
-
-    days.push({
-      key: localDayKey(date),
-      label: date.toLocaleDateString(undefined, { weekday: "short" })
-    });
-  }
-
-  const maxCount = Math.max(
-    1,
-    ...days.map((day) => dailyCounts[day.key] || 0)
-  );
-
-  days.forEach((day) => {
-    const count = dailyCounts[day.key] || 0;
-
-    const column = document.createElement("div");
-    column.className = "bar-column";
-
-    const value = document.createElement("span");
-    value.className = "bar-value";
-    value.textContent = count;
-
-    const track = document.createElement("div");
-    track.className = "bar-track";
-
-    const bar = document.createElement("div");
-    bar.className = "bar-fill";
-    bar.style.height = count ? `${(count / maxCount) * 100}%` : "0%";
+    dot.style.backgroundColor =
+      categoryColors[category] || categoryColors.Other;
 
     const label = document.createElement("span");
-    label.className = "bar-label";
-    label.textContent = day.label;
+    label.className = "legend-name";
+    label.textContent = category;
+
+    const count = document.createElement("strong");
+    count.textContent = counts[category];
+
+    button.append(dot, label, count);
+
+    button.addEventListener("click", () => {
+      selectedCategory = category;
+
+      const history = readHistory();
+
+      renderCategoryInsight(category, history);
+      renderPieLegend(counts, categories);
+
+      if (pieChart) {
+        const index = categories.indexOf(category);
+
+        pieChart.setActiveElements([
+          { datasetIndex: 0, index }
+        ]);
+
+        pieChart.update();
+      }
+    });
+
+    legend.appendChild(button);
+  });
+}
+
+// Display details for the selected category.
+function renderCategoryInsight(category, history) {
+  const target = $("#category-insight");
+  if (!target) return;
+
+  const items = history.filter(
+    (item) => normalizeCategory(item.category) === category
+  );
+
+  const names = items
+    .slice(0, 3)
+    .map((item) => item.itemName || "Unnamed item");
+
+  target.textContent =
+    `${category}: ${items.length} saved analysis` +
+    `${items.length === 1 ? "" : "es"}. ` +
+    `${names.length ? `Examples: ${names.join(", ")}.` : ""}`;
+}
+
+// Weekly activity graph with CSS fallback.
+function renderBarChart(history) {
+  const canvas = $("#activity-bar-chart");
+  if (!canvas) {
+    console.error("Activity chart canvas is missing.");
+    return;
+  }
+
+  const wrapper = canvas.parentElement;
+  if (!wrapper) return;
+
+  const days = [];
+  const values = [];
+  const today = new Date();
+
+  for (let offset = 6; offset >= 0; offset--) {
+    const day = new Date(today);
+
+    day.setHours(0, 0, 0, 0);
+    day.setDate(today.getDate() - offset);
+
+    days.push(
+      day.toLocaleDateString(undefined, { weekday: "short" })
+    );
+
+    const nextDay = new Date(day);
+    nextDay.setDate(day.getDate() + 1);
+
+    values.push(history.filter((item) => {
+      if (!item.date) return false;
+
+      const date = new Date(item.date);
+
+      return (
+        !Number.isNaN(date.getTime()) &&
+        date >= day &&
+        date < nextDay
+      );
+    }).length);
+  }
+
+  if (barChart) {
+    barChart.destroy();
+    barChart = null;
+  }
+
+  canvas.style.display = "block";
+
+  const oldFallback = wrapper.querySelector(".bar-fallback");
+  if (oldFallback) oldFallback.remove();
+
+  if (typeof Chart !== "undefined") {
+    barChart = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: days,
+        datasets: [{
+          label: "Saved analyses",
+          data: values,
+          backgroundColor: "#55d6a0",
+          hoverBackgroundColor: "#b8e986",
+          borderRadius: 7,
+          maxBarThickness: 32
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => ` ${context.raw} saved`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: "#9eb4a8"
+            },
+            border: {
+              display: false
+            }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0,
+              color: "#9eb4a8"
+            },
+            grid: {
+              color: "rgba(158,180,168,0.12)"
+            },
+            border: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+
+    return;
+  }
+
+  // CSS bar chart if Chart.js is unavailable.
+  canvas.style.display = "none";
+
+  const fallback = document.createElement("div");
+  fallback.className = "bar-fallback";
+  fallback.style.cssText =
+    "display:flex;align-items:stretch;justify-content:space-around;" +
+    "gap:8px;height:100%;width:100%;padding:15px 0 5px;";
+
+  const maxValue = Math.max(...values, 1);
+
+  days.forEach((day, index) => {
+    const column = document.createElement("div");
+
+    column.style.cssText =
+      "display:flex;flex:1;min-width:0;flex-direction:column;" +
+      "align-items:center;justify-content:flex-end;gap:9px;height:100%;";
+
+    const value = document.createElement("span");
+    value.textContent = String(values[index]);
+    value.style.cssText = "color:#9eb4a8;font-size:12px;";
+
+    const track = document.createElement("div");
+    track.style.cssText =
+      "display:flex;align-items:flex-end;justify-content:center;" +
+      "width:100%;flex:1;max-width:32px;background:rgba(158,180,168,.08);" +
+      "border-radius:7px 7px 2px 2px;overflow:hidden;";
+
+    const bar = document.createElement("div");
+
+    const height = values[index]
+      ? Math.max(5, (values[index] / maxValue) * 100)
+      : 0;
+
+    bar.style.cssText =
+      `width:100%;height:${height}%;background:#55d6a0;` +
+      "border-radius:7px 7px 2px 2px;";
 
     track.appendChild(bar);
+
+    const label = document.createElement("span");
+    label.textContent = day;
+    label.style.cssText = "color:#9eb4a8;font-size:11px;";
+
     column.append(value, track, label);
-    chart.appendChild(column);
+    fallback.appendChild(column);
   });
 
-  chart.setAttribute(
-    "aria-label",
-    days.map((day) => `${day.label}: ${dailyCounts[day.key] || 0}`).join(", ")
-  );
+  wrapper.appendChild(fallback);
 }
 
-/* =========================================
-   AI ANALYSIS
-   ========================================= */
+// Suggest an eco tip based on the most frequent category.
+function renderSmartTip(topCategory, total) {
+  const title = $("#smart-tip-title");
+  const tip = $("#smart-eco-tip");
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
+  if (!title || !tip) return;
 
-  if (isAnalyzing) return;
-
-  const waste = wasteInput.value.trim();
-
-  if (!waste) {
-    showError("Please describe the waste item first.");
-    wasteInput.focus();
+  if (!total || topCategory === "—") {
+    title.textContent = "Start with one small habit";
+    tip.textContent =
+      "Save a few analyses to discover a practical tip based on your most frequent waste category.";
     return;
   }
 
-  hideError();
-  setLoading(true);
+  const recommendation = categoryTips[topCategory] || categoryTips.Other;
 
-  const startedAt = performance.now();
+  title.textContent = `${topCategory}: ${recommendation.title}`;
+  tip.textContent = recommendation.tip;
+}
 
-  try {
-    const response = await fetch("/api/classify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ waste })
-    });
+// Open the browser's Print dialog for PDF export.
+function exportReport() {
+  renderAnalytics();
 
-    const data = await response.json().catch(() => ({}));
+  const previousTitle = document.title;
+  document.title = "EcoSort-AI-Analytics-Report";
 
-    if (!response.ok) {
-      throw new Error(
-        data.error || `AI request failed (HTTP ${response.status}).`
-      );
-    }
-
-    if (typeof data.answer !== "string" || !data.answer.trim()) {
-      throw new Error("The AI returned an empty response. Please try again.");
-    }
-
-    const answer = data.answer.trim();
-    const elapsedMs = Math.round(performance.now() - startedAt);
-
-    currentReportDate = new Date().toISOString();
-    displayAnswer(answer);
-
-    reportWaste.textContent = waste;
-    reportDate.textContent = formatDate(currentReportDate);
-    responseTime.textContent =
-      `Response time: ${(elapsedMs / 1000).toFixed(1)} seconds`;
-
-    emptyState.hidden = true;
-    resultContent.hidden = false;
-
-    saveHistory({
-      waste,
-      answer,
-      date: currentReportDate,
-      responseTimeMs: elapsedMs
-    });
-
-    resultContent.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest"
-    });
-  } catch (error) {
-    console.error("EcoSort AI error:", error);
-    showError(error.message || "Could not analyze the item. Please try again.");
-
-    if (!latestAnswer) emptyState.hidden = false;
-  } finally {
-    setLoading(false);
-  }
-});
-
-/* Copy analysis text */
-copyBtn.addEventListener("click", async () => {
-  if (!latestAnswer) {
-    showError("Analyze an item before copying the result.");
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(latestAnswer);
-
-    const oldText = copyBtn.textContent;
-    copyBtn.textContent = "Copied ✓";
-
-    setTimeout(() => {
-      if (copyBtn.isConnected) copyBtn.textContent = oldText;
-    }, 1800);
-  } catch {
-    showError("Copy failed. Please select and copy the result manually.");
-  }
-});
-
-/* Export current report to browser print/PDF dialog */
-function exportPDF() {
-  if (!latestAnswer) {
-    showError("Analyze an item before exporting a report.");
-    return;
-  }
-
-  const oldTitle = document.title;
-  const datePart = new Date(currentReportDate).toISOString().slice(0, 10);
-
-  document.title = `EcoSort-AI-Report-${datePart}`;
   window.print();
-  document.title = oldTitle;
+
+  document.title = previousTitle;
 }
 
-exportPdfBtn.addEventListener("click", exportPDF);
+// Clear saved browser history.
+function clearHistory() {
+  const history = readHistory();
 
-/* Footer and initial dashboard */
-$("#current-year").textContent = new Date().getFullYear();
+  if (!history.length) {
+    setStatus("Your history is already empty.");
+    return;
+  }
 
-renderHistory();
-renderAnalytics();
+  const confirmed = window.confirm(
+    "Clear all saved analyses from this browser? This cannot be undone."
+  );
+
+  if (!confirmed) return;
+  if (!writeHistory([])) return;
+
+  selectedCategory = null;
+
+  renderHistory();
+  renderAnalytics();
+
+  setStatus("Saved history cleared.");
+}
+
+// Connect buttons and inputs.
+function setupEventListeners() {
+  if (input) {
+    input.addEventListener("input", () => {
+      const counter = $("#character-count");
+
+      if (counter) {
+        counter.textContent = `${input.value.length} / 500`;
+      }
+    });
+  }
+
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener("click", analyzeWaste);
+  }
+
+  $("#save-result-btn")?.addEventListener(
+    "click",
+    saveCurrentAnalysis
+  );
+
+  $("#copy-result-btn")?.addEventListener(
+    "click",
+    copyCurrentAnalysis
+  );
+
+  $("#clear-history-btn")?.addEventListener(
+    "click",
+    clearHistory
+  );
+
+  $("#export-report-btn")?.addEventListener(
+    "click",
+    exportReport
+  );
+
+  document.querySelectorAll("[data-example]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!input) return;
+
+      input.value = button.dataset.example || "";
+
+      const counter = $("#character-count");
+
+      if (counter) {
+        counter.textContent = `${input.value.length} / 500`;
+      }
+
+      input.focus();
+    });
+  });
+}
+
+// Initialize after HTML is loaded.
+function initializeApp() {
+  setupEventListeners();
+  renderHistory();
+  renderAnalytics();
+
+  console.log("EcoSort AI frontend initialized.");
+  console.log("Chart.js available:", typeof Chart !== "undefined");
+}
+
+document.addEventListener("DOMContentLoaded", initializeApp);
