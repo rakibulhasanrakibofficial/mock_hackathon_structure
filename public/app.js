@@ -2,80 +2,47 @@
 "use strict";
 
 /* =========================================
-   EcoSort AI — Complete Frontend Logic
+   EcoSort AI — Complete Frontend
    ========================================= */
 
-const form = document.getElementById("waste-form");
-const wasteInput = document.getElementById("waste");
-const charCount = document.getElementById("char-count");
-const analyzeBtn = document.getElementById("analyze-btn");
-const buttonText = document.getElementById("button-text");
+const $ = (selector) => document.querySelector(selector);
 
-const emptyState = document.getElementById("empty-state");
-const loadingState = document.getElementById("loading-state");
-const resultContent = document.getElementById("result-content");
-const answerElement = document.getElementById("answer");
+const form = $("#waste-form");
+const wasteInput = $("#waste");
+const charCount = $("#char-count");
+const analyzeBtn = $("#analyze-btn");
+const buttonText = $("#button-text");
 
-const errorMessage = document.getElementById("error-message");
-const copyBtn = document.getElementById("copy-btn");
-const responseTime = document.getElementById("response-time");
+const emptyState = $("#empty-state");
+const loadingState = $("#loading-state");
+const resultContent = $("#result-content");
+const answerElement = $("#answer");
+const errorMessage = $("#error-message");
 
-const historyList = document.getElementById("history-list");
-const clearHistoryBtn = document.getElementById("clear-history");
+const copyBtn = $("#copy-btn");
+const exportPdfBtn = $("#export-pdf-btn");
+const responseTime = $("#response-time");
+const reportWaste = $("#report-waste");
+const reportDate = $("#report-date");
+
+const clearHistoryBtn = $("#clear-history");
+const historyList = $("#history-list");
 
 const HISTORY_KEY = "ecosort-ai-history";
 const MAX_HISTORY = 10;
 
 let latestAnswer = "";
 let isAnalyzing = false;
+let currentReportDate = new Date().toISOString();
 
 /* =========================================
-   Character Counter
+   Helpers
    ========================================= */
 
 function updateCharCount() {
-  if (!wasteInput || !charCount) return;
-
-  charCount.textContent = `${wasteInput.value.length}/1000`;
-}
-
-wasteInput?.addEventListener("input", updateCharCount);
-updateCharCount();
-
-/* =========================================
-   Example Chips + Category Buttons
-   ========================================= */
-
-document.querySelectorAll("[data-example]").forEach((button) => {
-  button.addEventListener("click", () => {
-    if (!wasteInput) return;
-
-    wasteInput.value = button.dataset.example || "";
-    updateCharCount();
-
-    hideError();
-
-    if (resultContent) resultContent.hidden = true;
-    if (emptyState) emptyState.hidden = false;
-
-    document.getElementById("analyzer")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-
-    wasteInput.focus({ preventScroll: true });
-  });
-});
-
-/* =========================================
-   UI State Helpers
-   ========================================= */
-
-function hideError() {
-  if (!errorMessage) return;
-
-  errorMessage.textContent = "";
-  errorMessage.hidden = true;
+  if (charCount && wasteInput) {
+    charCount.textContent = `${wasteInput.value.length}/1000`;
+  }
 }
 
 function showError(message) {
@@ -85,12 +52,17 @@ function showError(message) {
   errorMessage.hidden = false;
 }
 
+function hideError() {
+  if (!errorMessage) return;
+
+  errorMessage.textContent = "";
+  errorMessage.hidden = true;
+}
+
 function setLoading(loading) {
   isAnalyzing = loading;
 
-  if (analyzeBtn) {
-    analyzeBtn.disabled = loading;
-  }
+  if (analyzeBtn) analyzeBtn.disabled = loading;
 
   if (buttonText) {
     buttonText.textContent = loading
@@ -98,88 +70,115 @@ function setLoading(loading) {
       : "Analyze with AI →";
   }
 
-  if (loadingState) {
-    loadingState.hidden = !loading;
-  }
+  if (loadingState) loadingState.hidden = !loading;
+  if (loading && emptyState) emptyState.hidden = true;
+  if (loading && resultContent) resultContent.hidden = true;
+}
 
-  if (loading) {
-    if (emptyState) emptyState.hidden = true;
-    if (resultContent) resultContent.hidden = true;
-  }
+function formatDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+
+  return date.toLocaleString();
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
 }
 
 /* =========================================
-   Safe Text Rendering
+   Character Counter and Example Buttons
    ========================================= */
 
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, (character) => {
-    const entities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    };
+wasteInput?.addEventListener("input", updateCharCount);
+updateCharCount();
 
-    return entities[character];
+document.querySelectorAll("[data-example]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!wasteInput) return;
+
+    wasteInput.value = button.dataset.example || "";
+    updateCharCount();
+    hideError();
+
+    if (resultContent) resultContent.hidden = true;
+    if (emptyState) emptyState.hidden = false;
+
+    $("#analyzer")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+    wasteInput.focus({ preventScroll: true });
   });
-}
+});
 
-/*
- * Display the AI answer as plain text.
- * No AI-generated HTML is executed.
- */
+/* =========================================
+   Display AI Answer Safely
+   ========================================= */
+
 function displayAnswer(answer) {
   if (!answerElement) return;
 
   latestAnswer = answer;
   answerElement.replaceChildren();
 
-  const lines = answer.split(/\r?\n/);
-  let currentCard = null;
+  const headings = [
+    "CATEGORY",
+    "DISPOSAL",
+    "RECYCLING",
+    "SAFETY",
+    "REUSE IDEA"
+  ];
+
   let currentBody = null;
 
-  const headingPattern =
-    /^(?:#{1,4}\s*)?(CATEGORY|DISPOSAL|RECYCLING|SAFETY|REUSE IDEA)\s*:?\s*$/i;
+  answer.split(/\r?\n/).forEach((line) => {
+    const text = line.trim();
 
-  lines.forEach((line) => {
-    const trimmed = line.trim();
+    if (!text) return;
 
-    if (!trimmed) return;
+    const normalized = text
+      .replace(/^#{1,4}\s*/, "")
+      .replace(/\*{1,2}/g, "")
+      .replace(/:$/, "")
+      .trim()
+      .toUpperCase();
 
-    const headingMatch = trimmed.match(headingPattern);
-
-    if (headingMatch) {
-      currentCard = document.createElement("section");
-      currentCard.className = "answer-card";
+    if (headings.includes(normalized)) {
+      const card = document.createElement("section");
+      card.className = "answer-card";
 
       const heading = document.createElement("h4");
-      heading.textContent = headingMatch[1].toUpperCase();
+      heading.textContent = normalized;
 
-      currentBody = document.createElement("p");
+      const paragraph = document.createElement("p");
 
-      currentCard.append(heading, currentBody);
-      answerElement.appendChild(currentCard);
-
+      card.append(heading, paragraph);
+      answerElement.appendChild(card);
+      currentBody = paragraph;
       return;
     }
 
-    if (!currentCard) {
-      currentCard = document.createElement("section");
-      currentCard.className = "answer-card";
+    if (!currentBody) {
+      const card = document.createElement("section");
+      card.className = "answer-card";
 
-      currentBody = document.createElement("p");
-
-      currentCard.appendChild(currentBody);
-      answerElement.appendChild(currentCard);
+      const paragraph = document.createElement("p");
+      card.appendChild(paragraph);
+      answerElement.appendChild(card);
+      currentBody = paragraph;
     }
 
-    const existingText = currentBody.textContent;
-
-    currentBody.textContent = existingText
-      ? `${existingText}\n${trimmed}`
-      : trimmed;
+    currentBody.textContent +=
+      (currentBody.textContent ? "\n" : "") + text;
   });
 
   if (!answerElement.children.length) {
@@ -188,20 +187,15 @@ function displayAnswer(answer) {
 }
 
 /* =========================================
-   Local Analysis History
+   Local History
    ========================================= */
 
 function getHistory() {
   try {
-    const stored = localStorage.getItem(HISTORY_KEY);
-
-    if (!stored) return [];
-
-    const history = JSON.parse(stored);
-
-    return Array.isArray(history) ? history : [];
+    const data = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.warn("Could not read history:", error);
+    console.warn("History read failed:", error);
     return [];
   }
 }
@@ -219,34 +213,32 @@ function saveHistory(item) {
 
     renderHistory();
   } catch (error) {
-    console.warn("Could not save history:", error);
+    console.warn("History save failed:", error);
+    showError("Analysis succeeded, but this browser could not save history.");
   }
 }
 
 function renderHistory() {
   if (!historyList) return;
 
-  const history = getHistory();
   historyList.replaceChildren();
+
+  const history = getHistory();
 
   if (history.length === 0) {
     const empty = document.createElement("div");
     empty.className = "history-empty";
-
-    const icon = document.createElement("span");
-    icon.textContent = "📝";
+    empty.append("📝");
 
     const message = document.createElement("p");
-    message.textContent =
-      "Your analyses will appear here after you use the AI analyzer.";
+    message.textContent = "Your analyses will appear here.";
 
-    empty.append(icon, message);
+    empty.appendChild(message);
     historyList.appendChild(empty);
-
     return;
   }
 
-  history.forEach((item) => {
+  history.forEach((item, index) => {
     const card = document.createElement("article");
     card.className = "history-card";
 
@@ -254,78 +246,93 @@ function renderHistory() {
     title.textContent = item.waste || "Waste analysis";
 
     const preview = document.createElement("p");
-    preview.textContent = (item.answer || "").slice(0, 220);
-
-    if ((item.answer || "").length > 220) {
-      preview.textContent += "...";
-    }
+    preview.textContent = (item.answer || "").slice(0, 180) +
+      ((item.answer || "").length > 180 ? "…" : "");
 
     const date = document.createElement("p");
     date.className = "history-date";
+    date.textContent = formatDate(item.date);
 
-    const parsedDate = new Date(item.date);
-
-    date.textContent = Number.isNaN(parsedDate.getTime())
-      ? ""
-      : parsedDate.toLocaleString();
+    const actions = document.createElement("div");
+    actions.className = "history-actions";
 
     const viewButton = document.createElement("button");
     viewButton.type = "button";
-    viewButton.className = "category-link";
-    viewButton.textContent = "View result →";
+    viewButton.textContent = "View report";
 
     viewButton.addEventListener("click", () => {
-      if (wasteInput) {
-        wasteInput.value = item.waste || "";
-        updateCharCount();
-      }
-
-      displayAnswer(item.answer || "");
-      hideError();
-
-      if (emptyState) emptyState.hidden = true;
-      if (loadingState) loadingState.hidden = true;
-      if (resultContent) resultContent.hidden = false;
-
-      if (responseTime) {
-        responseTime.textContent =
-          typeof item.responseTimeMs === "number"
-            ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
-            : "";
-      }
-
-      document.getElementById("analyzer")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
+      loadReport(item);
     });
 
-    card.append(title, preview, date, viewButton);
+    const pdfButton = document.createElement("button");
+    pdfButton.type = "button";
+    pdfButton.textContent = "Export PDF";
+
+    pdfButton.addEventListener("click", () => {
+      loadReport(item);
+      exportPDF();
+    });
+
+    actions.append(viewButton, pdfButton);
+    card.append(title, preview, date, actions);
     historyList.appendChild(card);
   });
 }
 
+function loadReport(item) {
+  if (wasteInput) {
+    wasteInput.value = item.waste || "";
+    updateCharCount();
+  }
+
+  currentReportDate = item.date || new Date().toISOString();
+
+  displayAnswer(item.answer || "");
+
+  if (reportWaste) {
+    reportWaste.textContent = item.waste || "Unknown item";
+  }
+
+  if (reportDate) {
+    reportDate.textContent = formatDate(currentReportDate);
+  }
+
+  if (responseTime) {
+    responseTime.textContent =
+      typeof item.responseTimeMs === "number"
+        ? `Response time: ${(item.responseTimeMs / 1000).toFixed(1)} seconds`
+        : "";
+  }
+
+  hideError();
+
+  if (loadingState) loadingState.hidden = true;
+  if (emptyState) emptyState.hidden = true;
+  if (resultContent) resultContent.hidden = false;
+
+  $("#analyzer")?.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
 clearHistoryBtn?.addEventListener("click", () => {
-  const history = getHistory();
+  if (getHistory().length === 0) return;
 
-  if (history.length === 0) return;
-
-  const confirmed = window.confirm(
-    "Are you sure you want to clear your analysis history?"
-  );
-
-  if (!confirmed) return;
+  if (!window.confirm("Clear all saved analyses from this browser?")) {
+    return;
+  }
 
   try {
     localStorage.removeItem(HISTORY_KEY);
     renderHistory();
   } catch (error) {
-    console.warn("Could not clear history:", error);
+    showError("Could not clear history in this browser.");
   }
 });
 
 /* =========================================
-   AI Waste Analysis
+   AI Analysis
    ========================================= */
 
 form?.addEventListener("submit", async (event) => {
@@ -349,14 +356,12 @@ form?.addEventListener("submit", async (event) => {
   hideError();
   setLoading(true);
 
-  const startTime = performance.now();
+  const startedAt = performance.now();
 
   try {
     const response = await fetch("/api/classify", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ waste })
     });
 
@@ -364,7 +369,7 @@ form?.addEventListener("submit", async (event) => {
 
     if (!response.ok) {
       throw new Error(
-        data.error || `Analysis failed (HTTP ${response.status}).`
+        data.error || `AI request failed (HTTP ${response.status}).`
       );
     }
 
@@ -372,10 +377,15 @@ form?.addEventListener("submit", async (event) => {
       throw new Error("The AI returned an empty response. Please try again.");
     }
 
-    const elapsedMs = Math.round(performance.now() - startTime);
     const answer = data.answer.trim();
+    const elapsedMs = Math.round(performance.now() - startedAt);
+
+    currentReportDate = new Date().toISOString();
 
     displayAnswer(answer);
+
+    if (reportWaste) reportWaste.textContent = waste;
+    if (reportDate) reportDate.textContent = formatDate(currentReportDate);
 
     if (responseTime) {
       responseTime.textContent =
@@ -388,7 +398,7 @@ form?.addEventListener("submit", async (event) => {
     saveHistory({
       waste,
       answer,
-      date: new Date().toISOString(),
+      date: currentReportDate,
       responseTimeMs: elapsedMs
     });
 
@@ -397,12 +407,8 @@ form?.addEventListener("submit", async (event) => {
       block: "nearest"
     });
   } catch (error) {
-    console.error("EcoSort AI analysis error:", error);
-
-    showError(
-      error.message ||
-      "Could not analyze your waste. Check the server and try again."
-    );
+    console.error("EcoSort AI error:", error);
+    showError(error.message || "Could not analyze the item. Please try again.");
 
     if (emptyState && !latestAnswer) {
       emptyState.hidden = false;
@@ -413,47 +419,64 @@ form?.addEventListener("submit", async (event) => {
 });
 
 /* =========================================
-   Copy AI Result
+   Copy Result
    ========================================= */
 
 copyBtn?.addEventListener("click", async () => {
   if (!latestAnswer) {
-    showError("There is no result to copy yet.");
+    showError("Analyze an item before copying the result.");
     return;
   }
 
   try {
     await navigator.clipboard.writeText(latestAnswer);
 
-    const originalText = copyBtn.textContent;
-    copyBtn.textContent = "Copied! ✓";
+    const oldText = copyBtn.textContent;
+    copyBtn.textContent = "Copied ✓";
 
     window.setTimeout(() => {
-      if (copyBtn.isConnected) {
-        copyBtn.textContent = originalText;
-      }
+      if (copyBtn.isConnected) copyBtn.textContent = oldText;
     }, 1800);
   } catch (error) {
-    console.error("Clipboard error:", error);
-
-    showError(
-      "Could not copy automatically. Please select and copy the result manually."
-    );
+    showError("Copy failed. Please select the result text and copy it manually.");
   }
 });
 
 /* =========================================
-   Footer Year
+   PDF Export
    ========================================= */
 
-const yearElement = document.getElementById("current-year");
+function exportPDF() {
+  if (!latestAnswer) {
+    showError("Analyze a waste item before exporting a report.");
+    return;
+  }
+
+  const originalTitle = document.title;
+  const datePart = new Date(currentReportDate)
+    .toISOString()
+    .slice(0, 10);
+
+  document.title = `EcoSort-AI-Report-${datePart}`;
+
+  // The browser opens its print dialog.
+  // Select "Save as PDF" as the destination.
+  window.print();
+
+  // Restore the page title after the print dialog closes.
+  document.title = originalTitle;
+}
+
+exportPdfBtn?.addEventListener("click", exportPDF);
+
+/* =========================================
+   Footer and Startup
+   ========================================= */
+
+const yearElement = $("#current-year");
 
 if (yearElement) {
   yearElement.textContent = new Date().getFullYear();
 }
-
-/* =========================================
-   Initialize
-   ========================================= */
 
 renderHistory();
